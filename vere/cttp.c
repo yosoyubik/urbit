@@ -18,6 +18,9 @@
 #include "vere/vere.h"
 
 
+static void _cttp_cert_free(void);
+static uv_buf_t _cttp_wain_to_buf(u3_noun wan);
+
 // XX deduplicate with _http_vec_to_atom
 /* _cttp_vec_to_atom(): convert h2o_iovec_t to atom (cord)
 */
@@ -911,7 +914,7 @@ _cttp_creq_start(u3_creq* ceq_u)
 /* _cttp_init_tls: initialize OpenSSL context
 */
 static SSL_CTX*
-_cttp_init_tls()
+_cttp_init_tls(uv_buf_t key_u, uv_buf_t cer_u)
 {
   // XX require 1.1.0 and use TLS_client_method()
   SSL_CTX* tls_u = SSL_CTX_new(SSLv23_client_method());
@@ -928,6 +931,56 @@ _cttp_init_tls()
                           "ECDH+AESGCM:DH+AESGCM:ECDH+AES256:DH+AES256:"
                           "ECDH+AES128:DH+AES:ECDH+3DES:DH+3DES:RSA+AESGCM:"
                           "RSA+AES:RSA+3DES:!aNULL:!MD5:!DSS");
+
+  if (key_u.len == 0 && cer_u.len == 0) {
+    return tls_u;
+  }
+
+  {
+    BIO* bio_u = BIO_new_mem_buf(key_u.base, key_u.len);
+    EVP_PKEY* pky_u = PEM_read_bio_PrivateKey(bio_u, 0, 0, 0);
+    c3_i sas_i = SSL_CTX_use_PrivateKey(tls_u, pky_u);
+
+    EVP_PKEY_free(pky_u);
+    BIO_free(bio_u);
+
+    if( 0 == sas_i ) {
+      uL(fprintf(uH, "cttp: load private key failed:\n"));
+      ERR_print_errors_fp(uH);
+      uL(1);
+
+      SSL_CTX_free(tls_u);
+
+      return 0;
+    }
+  }
+
+  {
+    BIO* bio_u = BIO_new_mem_buf(cer_u.base, cer_u.len);
+    X509* xer_u = PEM_read_bio_X509_AUX(bio_u, 0, 0, 0);
+    c3_i sas_i = SSL_CTX_use_certificate(tls_u, xer_u);
+
+    X509_free(xer_u);
+
+    if( 0 == sas_i ) {
+      uL(fprintf(uH, "cttp: load certificate failed:\n"));
+      ERR_print_errors_fp(uH);
+      uL(1);
+
+      BIO_free(bio_u);
+      SSL_CTX_free(tls_u);
+
+      return 0;
+    }
+
+    // get any additional CA certs, ignoring errors
+    while ( 0 != (xer_u = PEM_read_bio_X509(bio_u, 0, 0, 0)) ) {
+      // XX require 1.0.2 or newer and use SSL_CTX_add0_chain_cert
+      SSL_CTX_add_extra_chain_cert(tls_u, xer_u);
+    }
+
+    BIO_free(bio_u);
+  }
 
   return tls_u;
 }
@@ -970,12 +1023,81 @@ u3_cttp_ef_thus(c3_l    num_l,
   u3z(cuq);
 }
 
+/* u3_cttp_ef_cert(): send %cert effect to cttp.
+*/
+void
+u3_cttp_ef_cert(u3_noun crt)
+{
+  u3_ccrt* crt_u = c3_malloc(sizeof(*crt_u));
+
+  if (( u3_nul == crt ) || !( c3y == u3du(crt) &&
+                               c3y == u3du(u3t(crt)) &&
+                               u3_nul == u3h(crt) ) ) {
+    uL(fprintf(uH, "cttp: cert: invalid card\n"));
+    u3z(crt);
+    return;
+  }
+  
+  if ( u3_nul != crt ) {
+    u3_noun key = u3h(u3t(crt));
+    u3_noun cer = u3t(u3t(crt));
+
+    crt_u->key_u = _cttp_wain_to_buf(u3k(key));
+    crt_u->cer_u = _cttp_wain_to_buf(u3k(cer));
+  } else {
+    crt_u->key_u = uv_buf_init(0, 0);
+    crt_u->cer_u = uv_buf_init(0, 0);
+  }
+
+  u3z(crt);
+  _cttp_cert_free();
+
+  SSL_CTX_free(u3_Host.ctp_u.tls_u);
+  u3_Host.crt_u.key_u = crt_u->key_u;
+  u3_Host.crt_u.cer_u = crt_u->cer_u;
+  u3_Host.ctp_u.tls_u = _cttp_init_tls(crt_u->key_u, crt_u->cer_u);
+  u3_Host.ctp_u.ctx_u->ssl_ctx = u3_Host.ctp_u.tls_u;
+}
+
+static uv_buf_t
+_cttp_wain_to_buf(u3_noun wan)
+{
+  c3_w len_w = _cttp_mcut_path(0, 0, (c3_c)10, u3k(wan));
+  c3_c* buf_c = c3_malloc(1 + len_w);
+
+  _cttp_mcut_path(buf_c, 0, (c3_c)10, wan);
+  buf_c[len_w] = 0;
+
+  return uv_buf_init(buf_c, len_w);
+}
+
+static void
+_cttp_cert_free(void)
+{
+  u3_ccrt* crt_u = &u3_Host.crt_u;
+  
+  if ( 0 == crt_u ) {
+    return;
+  }
+
+  if ( 0 != crt_u->key_u.base) {
+    free(crt_u->key_u.base);
+  }
+
+  if ( 0 != crt_u->cer_u.base) {
+    free(crt_u->cer_u.base);
+  }
+}
+
 /* u3_cttp_io_init(): initialize http client I/O.
 */
 void
 u3_cttp_io_init()
 {
-  u3_Host.ctp_u.tls_u = _cttp_init_tls();
+  u3_ccrt* crt_u = &u3_Host.crt_u;
+  c3_assert( 0 != crt_u );
+
+  u3_Host.ctp_u.tls_u = _cttp_init_tls(crt_u->key_u, crt_u->cer_u);
   u3_Host.ctp_u.ctx_u = _cttp_init_h2o();
   u3_Host.ctp_u.ctx_u->ssl_ctx = u3_Host.ctp_u.tls_u;
   u3_Host.ctp_u.ceq_u = 0;

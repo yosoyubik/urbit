@@ -185,6 +185,7 @@
 #   define c3__cdr    c3_s3('c','d','r')
 #   define c3__ce     c3_s2('c','e')
 #   define c3__cell   c3_s4('c','e','l','l')
+#   define c3__cert   c3_s4('c','e','r','t')
 #   define c3__chaf   c3_s4('c','h','a','f')
 #   define c3__chan   c3_s4('c','h','a','n')
 #   define c3__chew   c3_s4('c','h','e','w')

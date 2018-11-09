@@ -159,6 +159,14 @@ _reck_kick_http(u3_noun  pox,
       return c3y;
     }
 
+    case c3__cert: p_fav = u3t(fav);
+    {
+      u3_cttp_ef_cert(u3k(p_fav));
+
+      u3z(pox); u3z(fav);
+      return c3y;
+    }
+
     case c3__that: p_fav = u3t(fav);
     {
       u3_http_ef_that(u3k(p_fav));

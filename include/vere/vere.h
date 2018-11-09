@@ -104,6 +104,13 @@
         struct _u3_pcon* con_u;             //  cli_u connections
       } u3_hfig;
 
+    /* u3_ccrt: client ssl certificates
+    */
+      typedef struct _u3_ccrt {
+        uv_buf_t         key_u;             //  PEM RSA private
+        uv_buf_t         cer_u;             //  PEM certificate chain
+      } u3_ccrt;
+
     /* u3_proxy_type: proxy connection downstream type
     */
       typedef enum {
@@ -620,6 +627,7 @@
         c3_d       now_d;                   //  event tick
         uv_loop_t* lup_u;                   //  libuv event loop
         u3_hfig    fig_u;                   //  http configuration
+        u3_ccrt    crt_u;                   //  client ssl certificates
         u3_http*   htp_u;                   //  http servers
         u3_cttp    ctp_u;                   //  http clients
         u3_utel    tel_u;                   //  telnet listener
@@ -1048,7 +1056,7 @@
 
     /**  HTTP server.
     **/
-      /* u3_http_ef_form: send %from effect to http.
+      /* u3_http_ef_form: send %form effect to http.
       */
         void
         u3_http_ef_form(u3_noun fig);
@@ -1071,6 +1079,11 @@
         void
         u3_cttp_ef_thus(c3_l    num_l,
                         u3_noun req);
+
+      /* u3_cttp_ef_cert(): send %cert effect to cttp.
+      */
+        void
+        u3_cttp_ef_cert(u3_noun crt);
 
       /* u3_http_ef_bake(): create new http server.
       */
