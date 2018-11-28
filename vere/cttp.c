@@ -12,6 +12,7 @@
 #include <netinet/in.h>
 #include <uv.h>
 #include <errno.h>
+#include <openssl/err.h>
 #include <openssl/ssl.h>
 #include <h2o.h>
 #include "all.h"
@@ -545,6 +546,7 @@ _cttp_creq_free(u3_creq* ceq_u)
 static u3_creq*
 _cttp_creq_new(c3_l num_l, u3_noun hes)
 {
+  uL(fprintf(uH, "convert hiss to ceq_u\n"));
   u3_creq* ceq_u = c3_calloc(sizeof(*ceq_u));
 
   u3_noun pul = u3h(hes);      // +purl
@@ -686,10 +688,6 @@ _cttp_creq_quit(u3_creq* ceq_u)
     return;  // wait to be called again on address resolution
   }
 
-  if ( ceq_u->cli_u ) {
-    h2o_http1client_cancel(ceq_u->cli_u);
-  }
-
   _cttp_creq_free(ceq_u);
 }
 
@@ -786,11 +784,23 @@ _cttp_creq_on_head(h2o_http1client_t* cli_u, const c3_c* err_c, c3_i ver_i,
   return _cttp_creq_on_body;
 }
 
+/* _cttp_creq_on_proceed(): cb invoked by h2o while proceeding with a request
+*/
+static void
+_cttp_creq_on_proceed(h2o_http1client_t *cli_u, size_t written, 
+                      int is_end_stream)
+{
+  // TODO: figure this out
+}
+
 /* _cttp_creq_on_connect(): cb invoked by h2o upon successful connection
 */
 static h2o_http1client_head_cb
 _cttp_creq_on_connect(h2o_http1client_t* cli_u, const c3_c* err_c,
-                      h2o_iovec_t** vec_p, size_t* vec_t, c3_i* hed_i)
+                      h2o_iovec_t** vec_p, size_t* vec_t, c3_i* hed_i,
+                      h2o_http1client_proceed_req_cb *proceed,
+                      h2o_iovec_t *cur_body, int *body_is_chunked,
+                      h2o_url_t *dummy)
 {
   u3_creq* ceq_u = (u3_creq *)cli_u->data;
 
@@ -805,6 +815,11 @@ _cttp_creq_on_connect(h2o_http1client_t* cli_u, const c3_c* err_c,
     *vec_t = len_w;
     *vec_p = ceq_u->vec_u;
     *hed_i = c3__head == ceq_u->met_m;
+    if (len_w > 0) {
+// TODO: figure out what proceed does
+//      *proceed = _cttp_creq_proceed;
+      
+    }
   }
 
   return _cttp_creq_on_head;
@@ -818,23 +833,38 @@ _cttp_creq_connect(u3_creq* ceq_u)
   c3_assert(u3_csat_ripe == ceq_u->sat_e);
   c3_assert(ceq_u->ipf_c);
 
-  h2o_iovec_t ipf_u = h2o_iovec_init(ceq_u->ipf_c, strlen(ceq_u->ipf_c));
   c3_s por_s = ceq_u->por_s ? ceq_u->por_s :
                ( c3y == ceq_u->sec ) ? 443 : 80;
 
-  // connect by IP
-  h2o_http1client_connect(&ceq_u->cli_u, ceq_u, u3_Host.ctp_u.ctx_u, ipf_u,
-                          por_s, c3y == ceq_u->sec, _cttp_creq_on_connect);
+  c3_c* por_c = c3_calloc(6);
+  sprintf(por_c, "%u", por_s);
+
+  c3_s prefix_len = ( c3y == ceq_u->sec ) ? 8 : 7;
+  c3_c* url_c = c3_calloc(prefix_len + strlen(ceq_u->ipf_c) + 
+                          strlen(por_c) + 2); // host:port
+  strcpy(url_c, ( c3y == ceq_u->sec ) ? "https://" : "http://");
+  strcat(url_c, ceq_u->ipf_c);
+  strcat(url_c, ":");
+  strcat(url_c, por_c);
+
+  h2o_url_t url;
+  if ( h2o_url_parse(url_c, strlen(url_c), &url) ) {
+    printf("cttp: malformed url: %s", url_c);
+    return;
+  }
+
+  h2o_http1client_connect(NULL, ceq_u, u3_Host.ctp_u.ctx_u,
+                          u3_Host.ctp_u.sok_u, &url, _cttp_creq_on_connect);
 
   // set hostname for TLS handshake
-  if ( ceq_u->hot_c && c3y == ceq_u->sec ) {
+  /*if ( ceq_u->hot_c && c3y == ceq_u->sec ) {
     c3_w len_w  = 1 + strlen(ceq_u->hot_c);
     c3_c* hot_c = c3_malloc(len_w);
     strncpy(hot_c, ceq_u->hot_c, len_w);
 
-    free(ceq_u->cli_u->ssl.server_name);
-    ceq_u->cli_u->ssl.server_name = hot_c;
-  }
+    free(ceq_u->sok_u->_ssl_ctx->server_name);
+    ceq_u->sok_u->_ssl_ctx->server_name = hot_c;
+  }*/
 
   _cttp_creq_fire(ceq_u);
 }
@@ -990,15 +1020,29 @@ _cttp_init_tls(uv_buf_t key_u, uv_buf_t cer_u)
 static h2o_http1client_ctx_t*
 _cttp_init_h2o()
 {
-  h2o_timeout_t* tim_u = c3_malloc(sizeof(*tim_u));
+  h2o_timeout_t* tim_u = c3_calloc(sizeof(*tim_u));
 
   h2o_timeout_init(u3L, tim_u, 300 * 1000);
 
   h2o_http1client_ctx_t* ctx_u = c3_calloc(sizeof(*ctx_u));
+
   ctx_u->loop = u3L;
   ctx_u->io_timeout = tim_u;
+  ctx_u->connect_timeout = tim_u;
+  ctx_u->first_byte_timeout = tim_u;
 
   return ctx_u;
+};
+
+static h2o_socketpool_t*
+_cttp_init_h2o_socketpool(h2o_http1client_ctx_t* ctx_u)
+{
+  h2o_socketpool_t* sok_u = c3_calloc(sizeof(*sok_u));
+  h2o_socketpool_init_global(sok_u, 10);
+  h2o_socketpool_set_timeout(sok_u, 300 * 1000);
+  h2o_socketpool_register_loop(sok_u, ctx_u->loop);
+
+  return sok_u;
 };
 
 /* u3_cttp_ef_thus(): send %thus effect (outgoing request) to cttp.
@@ -1056,7 +1100,7 @@ u3_cttp_ef_cert(u3_noun crt)
   u3_Host.crt_u.key_u = crt_u->key_u;
   u3_Host.crt_u.cer_u = crt_u->cer_u;
   u3_Host.ctp_u.tls_u = _cttp_init_tls(crt_u->key_u, crt_u->cer_u);
-  u3_Host.ctp_u.ctx_u->ssl_ctx = u3_Host.ctp_u.tls_u;
+  h2o_socketpool_set_ssl_ctx(u3_Host.ctp_u.sok_u, u3_Host.ctp_u.tls_u);
 }
 
 static uv_buf_t
@@ -1097,9 +1141,12 @@ u3_cttp_io_init()
   u3_ccrt* crt_u = &u3_Host.crt_u;
   c3_assert( 0 != crt_u );
 
+  uL(fprintf(uH, "cttp: io init\n"));
+
   u3_Host.ctp_u.tls_u = _cttp_init_tls(crt_u->key_u, crt_u->cer_u);
   u3_Host.ctp_u.ctx_u = _cttp_init_h2o();
-  u3_Host.ctp_u.ctx_u->ssl_ctx = u3_Host.ctp_u.tls_u;
+  u3_Host.ctp_u.sok_u = _cttp_init_h2o_socketpool(u3_Host.ctp_u.ctx_u);
+  h2o_socketpool_set_ssl_ctx(u3_Host.ctp_u.sok_u, u3_Host.ctp_u.tls_u);
   u3_Host.ctp_u.ceq_u = 0;
 }
 
@@ -1111,4 +1158,5 @@ u3_cttp_io_exit(void)
     SSL_CTX_free(u3_Host.ctp_u.tls_u);
     free(u3_Host.ctp_u.ctx_u->io_timeout);
     free(u3_Host.ctp_u.ctx_u);
+    free(u3_Host.ctp_u.sok_u);
 }

@@ -203,7 +203,6 @@
     */
       typedef struct _u3_creq {             //  client request
         c3_l             num_l;             //  request number
-        h2o_http1client_t* cli_u;           //  h2o client
         u3_csat          sat_e;             //  connection state
         c3_o             sec;               //  yes == https
         c3_w             ipf_w;             //  IP
@@ -238,6 +237,8 @@
         u3_creq*         ceq_u;             //  request list
         h2o_http1client_ctx_t*              //
                          ctx_u;             //  h2o client ctx
+        h2o_socketpool_t*                   // 
+                         sok_u;             //  h2o client socketpool
         void*            tls_u;             //  client SSL_CTX*
       } u3_cttp;
 

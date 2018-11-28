@@ -25,3 +25,5 @@
 [submodule "subprojects/libsni"]
 	path = subprojects/libsni
 	url = https://github.com/urbit/sniproxy
+[submodule "subprojects/libh2o"]
+	urbit = urbit-2.3
