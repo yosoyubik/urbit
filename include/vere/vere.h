@@ -218,6 +218,7 @@
         u3_hbod*         bur_u;             //  entry of send queue
         h2o_iovec_t*     vec_u;             //  send-buffer array
         u3_cres*         res_u;             //  nascent response
+        h2o_mem_pool_t*   pol_u;            //  memory pool for body
         struct _u3_creq* nex_u;             //  next in list
         struct _u3_creq* pre_u;             //  previous in list
       } u3_creq;
@@ -235,10 +236,12 @@
     */
       typedef struct _u3_cttp {
         u3_creq*         ceq_u;             //  request list
-        h2o_http1client_ctx_t*              //
+        h2o_httpclient_ctx_t*              //
                          ctx_u;             //  h2o client ctx
         h2o_socketpool_t*                   // 
                          sok_u;             //  h2o client socketpool
+        h2o_httpclient_connection_pool_t*   //
+                         con_u;             //  h2o client connpool
         void*            tls_u;             //  client SSL_CTX*
       } u3_cttp;
 

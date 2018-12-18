@@ -682,19 +682,6 @@ _http_h2o_context_dispose(h2o_context_t* ctx)
   free(ctx->_pathconfs_inited.entries);
   free(ctx->_module_configs);
 
-  h2o_timeout_dispose(ctx->loop, &ctx->zero_timeout);
-  h2o_timeout_dispose(ctx->loop, &ctx->hundred_ms_timeout);
-  h2o_timeout_dispose(ctx->loop, &ctx->handshake_timeout);
-  h2o_timeout_dispose(ctx->loop, &ctx->http1.req_timeout);
-  h2o_timeout_dispose(ctx->loop, &ctx->http2.idle_timeout);
-
-  // NOTE: linked in http2/connection, never unlinked
-  h2o_timeout_unlink(&ctx->http2._graceful_shutdown_timeout);
-
-  h2o_timeout_dispose(ctx->loop, &ctx->http2.graceful_shutdown_timeout);
-  h2o_timeout_dispose(ctx->loop, &ctx->proxy.io_timeout);
-  h2o_timeout_dispose(ctx->loop, &ctx->one_sec_timeout);
-
   h2o_filecache_destroy(ctx->filecache);
   ctx->filecache = NULL;
 
@@ -2513,7 +2500,7 @@ _proxy_parse_host(const uv_buf_t* buf_u, c3_c** hot_c)
     h2o_strtolower((c3_c*)hed_u[i].name, hed_u[i].name_len);
 
     if ( 0 != (tok_t = h2o_lookup_token(hed_u[i].name, hed_u[i].name_len)) ) {
-      if ( tok_t->is_init_header_special && H2O_TOKEN_HOST == tok_t ) {
+      if ( H2O_TOKEN_HOST == tok_t ) {
         c3_c* val_c;
         c3_c* por_c;
 

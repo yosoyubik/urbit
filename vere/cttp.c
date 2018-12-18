@@ -20,7 +20,10 @@
 
 
 static void _cttp_cert_free(void);
+static h2o_url_t _cttp_ceq_to_h2o_url(u3_creq* ceq_u);
+static char* _cttp_met_to_char(c3_m met_m);
 static uv_buf_t _cttp_wain_to_buf(u3_noun wan);
+static c3_c* _cttp_ceq_to_host_hed(u3_creq* ceq_u);
 
 // XX deduplicate with _http_vec_to_atom
 /* _cttp_vec_to_atom(): convert h2o_iovec_t to atom (cord)
@@ -44,6 +47,70 @@ _cttp_bods_free(u3_hbod* bod_u)
   }
 }
 
+static h2o_url_t
+_cttp_ceq_to_h2o_url(u3_creq* ceq_u)
+{
+  c3_s por_s = ceq_u->por_s ? ceq_u->por_s :
+               ( c3y == ceq_u->sec ) ? 443 : 80;
+
+  c3_c* por_c = c3_calloc(6);
+  sprintf(por_c, "%u", por_s);
+
+  c3_s prefix_len = ( c3y == ceq_u->sec ) ? 8 : 7;
+  c3_c* url_c = c3_calloc(prefix_len + strlen(ceq_u->ipf_c) + 
+                          strlen(por_c) + 2); // host:port
+  strcpy(url_c, ( c3y == ceq_u->sec ) ? "https://" : "http://");
+  strcat(url_c, ceq_u->ipf_c);
+  strcat(url_c, ":");
+  strcat(url_c, por_c);
+
+  h2o_url_t url;
+  if ( h2o_url_parse(url_c, strlen(url_c), &url) ) {
+    printf("cttp: malformed url: %s", url_c);
+    c3_assert(0);
+  }
+
+  return url;
+}
+
+static char*
+_cttp_met_to_char(c3_m met_m)
+{
+  switch ( met_m ) {
+    default: c3_assert(0); return 0;
+    case c3__get:   return (char*)"GET ";      break;
+    case c3__put:   return (char*)"PUT ";      break;
+    case c3__post:  return (char*)"POST ";     break;
+    case c3__head:  return (char*)"HEAD ";     break;
+    case c3__conn:  return (char*)"CONNECT ";  break;
+    case c3__delt:  return (char*)"DELETE ";   break;
+    case c3__opts:  return (char*)"OPTIONS ";  break;
+    case c3__trac:  return (char*)"TRACE ";    break;
+  }
+}
+
+static c3_c*
+_cttp_ceq_to_host_hed(u3_creq* ceq_u)
+{
+    c3_c* hot_c = ceq_u->hot_c ? ceq_u->hot_c : ceq_u->ipf_c;
+    c3_c* hos_c;
+    c3_w len_w;
+
+    if ( ceq_u->por_c ) {
+      len_w = strlen(hot_c) + strlen(ceq_u->por_c) + 2;
+      hos_c = c3_calloc(len_w);
+      len_w = snprintf(hos_c, len_w, "%s:%s", hot_c, ceq_u->por_c);
+    }
+    else {
+      len_w = strlen(hot_c) + 1;
+      hos_c = c3_calloc(len_w);
+      len_w = snprintf(hos_c, len_w, "%s", hot_c);
+    }
+
+    return hos_c;
+}
+
+
 /* _cttp_bod_new(): create a data buffer
 */
 static u3_hbod*
@@ -55,26 +122,6 @@ _cttp_bod_new(c3_w len_w, c3_c* hun_c)
   memcpy(bod_u->hun_y, (const c3_y*)hun_c, len_w);
 
   bod_u->nex_u = 0;
-  return bod_u;
-}
-
-/* _cttp_bod_from_hed(): create a data buffer from a header
-*/
-static u3_hbod*
-_cttp_bod_from_hed(u3_hhed* hed_u)
-{
-  c3_w len_w     = hed_u->nam_w + 2 + hed_u->val_w + 2;
-  u3_hbod* bod_u = c3_malloc(1 + len_w + sizeof(*bod_u));
-  bod_u->hun_y[len_w] = 0;
-
-  memcpy(bod_u->hun_y, hed_u->nam_c, hed_u->nam_w);
-  memcpy(bod_u->hun_y + hed_u->nam_w, ": ", 2);
-  memcpy(bod_u->hun_y + hed_u->nam_w + 2, hed_u->val_c, hed_u->val_w);
-  memcpy(bod_u->hun_y + hed_u->nam_w + 2 + hed_u->val_w, "\r\n", 2);
-
-  bod_u->len_w = len_w;
-  bod_u->nex_u = 0;
-
   return bod_u;
 }
 
@@ -589,95 +636,6 @@ _cttp_creq_new(c3_l num_l, u3_noun hes)
   return ceq_u;
 }
 
-/* _cttp_creq_fire_body(): attach body to request buffers.
-*/
-static void
-_cttp_creq_fire_body(u3_creq* ceq_u, u3_hbod *rub_u)
-{
-  c3_assert(!rub_u->nex_u);
-
-  if ( !(ceq_u->rub_u) ) {
-    ceq_u->rub_u = ceq_u->bur_u = rub_u;
-  }
-  else {
-    ceq_u->bur_u->nex_u = rub_u;
-    ceq_u->bur_u = rub_u;
-  }
-}
-
-/* _cttp_creq_fire_str(): attach string to request buffers.
-*/
-static void
-_cttp_creq_fire_str(u3_creq* ceq_u, c3_c* str_c)
-{
-  _cttp_creq_fire_body(ceq_u, _cttp_bod_new(strlen(str_c), str_c));
-}
-
-/* _cttp_creq_fire_heds(): attach output headers.
-*/
-static void
-_cttp_creq_fire_heds(u3_creq* ceq_u, u3_hhed* hed_u)
-{
-  while ( hed_u ) {
-    _cttp_creq_fire_body(ceq_u, _cttp_bod_from_hed(hed_u));
-    hed_u = hed_u->nex_u;
-  }
-}
-
-/* _cttp_creq_fire(): load request data for into buffers.
-*/
-static void
-_cttp_creq_fire(u3_creq* ceq_u)
-{
-  switch ( ceq_u->met_m ) {
-    default: c3_assert(0);
-    case c3__get:   _cttp_creq_fire_str(ceq_u, "GET ");      break;
-    case c3__put:   _cttp_creq_fire_str(ceq_u, "PUT ");      break;
-    case c3__post:  _cttp_creq_fire_str(ceq_u, "POST ");     break;
-    case c3__head:  _cttp_creq_fire_str(ceq_u, "HEAD ");     break;
-    case c3__conn:  _cttp_creq_fire_str(ceq_u, "CONNECT ");  break;
-    case c3__delt:  _cttp_creq_fire_str(ceq_u, "DELETE ");   break;
-    case c3__opts:  _cttp_creq_fire_str(ceq_u, "OPTIONS ");  break;
-    case c3__trac:  _cttp_creq_fire_str(ceq_u, "TRACE ");    break;
-  }
-  _cttp_creq_fire_str(ceq_u, ceq_u->url_c);
-  _cttp_creq_fire_str(ceq_u, " HTTP/1.1\r\n");
-
-  {
-    c3_c* hot_c = ceq_u->hot_c ? ceq_u->hot_c : ceq_u->ipf_c;
-    c3_c* hos_c;
-    c3_w  len_w;
-
-    if ( ceq_u->por_c ) {
-      len_w = 6 + strlen(hot_c) + 1 + strlen(ceq_u->por_c) + 3;
-      hos_c = c3_malloc(len_w);
-      len_w = snprintf(hos_c, len_w, "Host: %s:%s\r\n", hot_c, ceq_u->por_c);
-    }
-    else {
-      len_w = 6 + strlen(hot_c) + 3;
-      hos_c = c3_malloc(len_w);
-      len_w = snprintf(hos_c, len_w, "Host: %s\r\n", hot_c);
-    }
-
-    _cttp_creq_fire_body(ceq_u, _cttp_bod_new(len_w, hos_c));
-    free(hos_c);
-  }
-
-  _cttp_creq_fire_heds(ceq_u, ceq_u->hed_u);
-
-  if ( !ceq_u->bod_u ) {
-    _cttp_creq_fire_body(ceq_u, _cttp_bod_new(2, "\r\n"));
-  }
-  else {
-    c3_c len_c[41];
-    c3_w len_w = snprintf(len_c, 40, "Content-Length: %u\r\n\r\n",
-                                     ceq_u->bod_u->len_w);
-
-    _cttp_creq_fire_body(ceq_u, _cttp_bod_new(len_w, len_c));
-    _cttp_creq_fire_body(ceq_u, ceq_u->bod_u);
-  }
-}
-
 /* _cttp_creq_quit(): cancel a u3_creq
 */
 static void
@@ -735,24 +693,24 @@ _cttp_creq_respond(u3_creq* ceq_u)
 /* _cttp_creq_on_body(): cb invoked by h2o upon receiving a response body
 */
 static c3_i
-_cttp_creq_on_body(h2o_http1client_t* cli_u, const c3_c* err_c)
+_cttp_creq_on_body(h2o_httpclient_t* cli_u, const c3_c* err_c)
 {
   u3_creq* ceq_u = (u3_creq *)cli_u->data;
 
-  if ( 0 != err_c && h2o_http1client_error_is_eos != err_c ) {
+  if ( 0 != err_c && h2o_httpclient_error_is_eos != err_c ) {
     _cttp_creq_fail(ceq_u, err_c);
     return -1;
   }
 
-  h2o_buffer_t* buf_u = cli_u->sock->input;
+  h2o_buffer_t* buf_u = *cli_u->buf;
 
   if ( buf_u->size ) {
     _cttp_cres_fire_body(ceq_u->res_u,
                          _cttp_bod_new(buf_u->size, buf_u->bytes));
-    h2o_buffer_consume(&cli_u->sock->input, buf_u->size);
+    h2o_buffer_consume(cli_u->buf, buf_u->size);
   }
 
-  if ( h2o_http1client_error_is_eos == err_c ) {
+  if ( h2o_httpclient_error_is_eos == err_c ) {
     _cttp_creq_respond(ceq_u);
   }
 
@@ -761,14 +719,14 @@ _cttp_creq_on_body(h2o_http1client_t* cli_u, const c3_c* err_c)
 
 /* _cttp_creq_on_head(): cb invoked by h2o upon receiving response headers
 */
-static h2o_http1client_body_cb
-_cttp_creq_on_head(h2o_http1client_t* cli_u, const c3_c* err_c, c3_i ver_i,
+static h2o_httpclient_body_cb
+_cttp_creq_on_head(h2o_httpclient_t* cli_u, const c3_c* err_c, c3_i ver_i,
                    c3_i sas_i, h2o_iovec_t sas_u, h2o_header_t* hed_u,
                    size_t hed_t, c3_i len_i)
 {
   u3_creq* ceq_u = (u3_creq *)cli_u->data;
 
-  if ( 0 != err_c && h2o_http1client_error_is_eos != err_c ) {
+  if ( 0 != err_c && h2o_httpclient_error_is_eos != err_c ) {
     _cttp_creq_fail(ceq_u, err_c);
     return 0;
   }
@@ -776,7 +734,7 @@ _cttp_creq_on_head(h2o_http1client_t* cli_u, const c3_c* err_c, c3_i ver_i,
   _cttp_cres_new(ceq_u, (c3_w)sas_i);
   ceq_u->res_u->hed = _cttp_heds_to_noun(hed_u, hed_t);
 
-  if ( h2o_http1client_error_is_eos == err_c ) {
+  if ( h2o_httpclient_error_is_eos == err_c ) {
     _cttp_creq_respond(ceq_u);
     return 0;
   }
@@ -787,7 +745,7 @@ _cttp_creq_on_head(h2o_http1client_t* cli_u, const c3_c* err_c, c3_i ver_i,
 /* _cttp_creq_on_proceed(): cb invoked by h2o while proceeding with a request
 */
 static void
-_cttp_creq_on_proceed(h2o_http1client_t *cli_u, size_t written, 
+_cttp_creq_on_proceed(h2o_httpclient_t *cli_u, size_t written, 
                       int is_end_stream)
 {
   // TODO: figure this out
@@ -795,12 +753,15 @@ _cttp_creq_on_proceed(h2o_http1client_t *cli_u, size_t written,
 
 /* _cttp_creq_on_connect(): cb invoked by h2o upon successful connection
 */
-static h2o_http1client_head_cb
-_cttp_creq_on_connect(h2o_http1client_t* cli_u, const c3_c* err_c,
-                      h2o_iovec_t** vec_p, size_t* vec_t, c3_i* hed_i,
-                      h2o_http1client_proceed_req_cb *proceed,
-                      h2o_iovec_t *cur_body, int *body_is_chunked,
-                      h2o_url_t *dummy)
+static h2o_httpclient_head_cb
+_cttp_creq_on_connect(h2o_httpclient_t *cli_u, const c3_c *err_c,
+                      h2o_iovec_t *_method, h2o_url_t *url,
+                      const h2o_header_t **headers,
+                      size_t *num_headers,
+                      h2o_iovec_t *body,
+                      h2o_httpclient_proceed_req_cb *proceed_req_cb,
+                      h2o_httpclient_properties_t *props,
+                      h2o_url_t *origin)
 {
   u3_creq* ceq_u = (u3_creq *)cli_u->data;
 
@@ -809,17 +770,44 @@ _cttp_creq_on_connect(h2o_http1client_t* cli_u, const c3_c* err_c,
     return 0;
   }
 
-  {
-    c3_w len_w;
-    ceq_u->vec_u = _cttp_bods_to_vec(ceq_u->rub_u, &len_w);
-    *vec_t = len_w;
-    *vec_p = ceq_u->vec_u;
-    *hed_i = c3__head == ceq_u->met_m;
-    if (len_w > 0) {
-// TODO: figure out what proceed does
-//      *proceed = _cttp_creq_proceed;
-      
+  char *met_m = _cttp_met_to_char(ceq_u->met_m);
+  *_method = h2o_iovec_init(met_m, strlen(met_m));
+
+  *url = _cttp_ceq_to_h2o_url(ceq_u);
+  *headers = NULL;
+  *num_headers = 0;
+  *body = h2o_iovec_init(NULL, 0);
+
+  c3_w body_size;
+  ceq_u->vec_u = _cttp_bods_to_vec(ceq_u->bod_u, &body_size);
+
+  if (body_size > 0) {
+    *body = *(ceq_u->vec_u);
+    u3_hhed* hed_u = ceq_u->hed_u;
+    h2o_headers_t headers_vec = (h2o_headers_t){NULL};
+
+    c3_c* hos_c = _cttp_ceq_to_host_hed(ceq_u);
+    h2o_add_header(ceq_u->pol_u, &headers_vec, H2O_TOKEN_HOST,
+                    NULL, hos_c, strlen(hos_c));
+    free(hos_c);
+
+    c3_c *len_c = c3_calloc(33);
+    c3_w len_w = snprintf(len_c, 33, "%u", ceq_u->bod_u->len_w);
+
+    h2o_add_header(ceq_u->pol_u, &headers_vec, H2O_TOKEN_CONTENT_LENGTH, 
+                    NULL, len_c, len_w);
+    free(len_c);
+
+    while (hed_u != NULL) {
+      h2o_set_header_by_str(ceq_u->pol_u, &headers_vec, hed_u->nam_c,
+                             strlen(hed_u->nam_c), 1, hed_u->val_c, 
+                             strlen(hed_u->val_c), 1);
+      *num_headers = *num_headers + 1;
+      hed_u = hed_u->nex_u;
     }
+
+    *headers = headers_vec.entries;
+    *proceed_req_cb = _cttp_creq_on_proceed;
   }
 
   return _cttp_creq_on_head;
@@ -833,28 +821,10 @@ _cttp_creq_connect(u3_creq* ceq_u)
   c3_assert(u3_csat_ripe == ceq_u->sat_e);
   c3_assert(ceq_u->ipf_c);
 
-  c3_s por_s = ceq_u->por_s ? ceq_u->por_s :
-               ( c3y == ceq_u->sec ) ? 443 : 80;
+  h2o_url_t url = _cttp_ceq_to_h2o_url(ceq_u);
 
-  c3_c* por_c = c3_calloc(6);
-  sprintf(por_c, "%u", por_s);
-
-  c3_s prefix_len = ( c3y == ceq_u->sec ) ? 8 : 7;
-  c3_c* url_c = c3_calloc(prefix_len + strlen(ceq_u->ipf_c) + 
-                          strlen(por_c) + 2); // host:port
-  strcpy(url_c, ( c3y == ceq_u->sec ) ? "https://" : "http://");
-  strcat(url_c, ceq_u->ipf_c);
-  strcat(url_c, ":");
-  strcat(url_c, por_c);
-
-  h2o_url_t url;
-  if ( h2o_url_parse(url_c, strlen(url_c), &url) ) {
-    printf("cttp: malformed url: %s", url_c);
-    return;
-  }
-
-  h2o_http1client_connect(NULL, ceq_u, u3_Host.ctp_u.ctx_u,
-                          u3_Host.ctp_u.sok_u, &url, _cttp_creq_on_connect);
+  h2o_httpclient_connect(NULL, ceq_u->pol_u, ceq_u, u3_Host.ctp_u.ctx_u,
+                          u3_Host.ctp_u.con_u, &url, _cttp_creq_on_connect);
 
   // set hostname for TLS handshake
   /*if ( ceq_u->hot_c && c3y == ceq_u->sec ) {
@@ -865,8 +835,6 @@ _cttp_creq_connect(u3_creq* ceq_u)
     free(ceq_u->sok_u->_ssl_ctx->server_name);
     ceq_u->sok_u->_ssl_ctx->server_name = hot_c;
   }*/
-
-  _cttp_creq_fire(ceq_u);
 }
 
 /* _cttp_creq_resolve_cb(): cb upon IP address resolution
@@ -1017,15 +985,13 @@ _cttp_init_tls(uv_buf_t key_u, uv_buf_t cer_u)
 
 /* _cttp_init_h2o: initialize h2o client ctx and timeout
 */
-static h2o_http1client_ctx_t*
+static h2o_httpclient_ctx_t*
 _cttp_init_h2o()
 {
-  h2o_timeout_t* tim_u = c3_calloc(sizeof(*tim_u));
+  c3_d tim_u = 300 * 1000;
 
-  h2o_timeout_init(u3L, tim_u, 300 * 1000);
-
-  h2o_http1client_ctx_t* ctx_u = c3_calloc(sizeof(*ctx_u));
-
+  h2o_httpclient_ctx_t* ctx_u = c3_calloc(sizeof(*ctx_u));
+  ctx_u->http2.ratio = 1;
   ctx_u->loop = u3L;
   ctx_u->io_timeout = tim_u;
   ctx_u->connect_timeout = tim_u;
@@ -1035,7 +1001,7 @@ _cttp_init_h2o()
 };
 
 static h2o_socketpool_t*
-_cttp_init_h2o_socketpool(h2o_http1client_ctx_t* ctx_u)
+_cttp_init_h2o_socketpool(h2o_httpclient_ctx_t* ctx_u)
 {
   h2o_socketpool_t* sok_u = c3_calloc(sizeof(*sok_u));
   h2o_socketpool_init_global(sok_u, 10);
@@ -1045,6 +1011,13 @@ _cttp_init_h2o_socketpool(h2o_http1client_ctx_t* ctx_u)
   return sok_u;
 };
 
+static h2o_httpclient_connection_pool_t*
+_cttp_init_h2o_connectionpool(h2o_socketpool_t* sok_u)
+{
+  h2o_httpclient_connection_pool_t* con_u = c3_calloc(sizeof(*con_u));
+  h2o_httpclient_connection_pool_init(con_u, sok_u);
+  return con_u;
+}
 /* u3_cttp_ef_thus(): send %thus effect (outgoing request) to cttp.
 */
 void
@@ -1146,6 +1119,7 @@ u3_cttp_io_init()
   u3_Host.ctp_u.tls_u = _cttp_init_tls(crt_u->key_u, crt_u->cer_u);
   u3_Host.ctp_u.ctx_u = _cttp_init_h2o();
   u3_Host.ctp_u.sok_u = _cttp_init_h2o_socketpool(u3_Host.ctp_u.ctx_u);
+  u3_Host.ctp_u.con_u = _cttp_init_h2o_connectionpool(u3_Host.ctp_u.sok_u);
   h2o_socketpool_set_ssl_ctx(u3_Host.ctp_u.sok_u, u3_Host.ctp_u.tls_u);
   u3_Host.ctp_u.ceq_u = 0;
 }
@@ -1156,7 +1130,6 @@ void
 u3_cttp_io_exit(void)
 {
     SSL_CTX_free(u3_Host.ctp_u.tls_u);
-    free(u3_Host.ctp_u.ctx_u->io_timeout);
     free(u3_Host.ctp_u.ctx_u);
     free(u3_Host.ctp_u.sok_u);
 }
