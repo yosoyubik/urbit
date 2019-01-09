@@ -14,7 +14,7 @@
 #include <uv.h>
 #include <errno.h>
 #include <openssl/ssl.h>
- #include <openssl/err.h>
+#include <openssl/err.h>
 #include <h2o.h>
 #include "all.h"
 #include "vere/vere.h"
@@ -873,7 +873,7 @@ _http_serv_accept(u3_http* htp_u)
     return;
   }
 
-  hon_u->sok_u = h2o_uv_socket_create((uv_stream_t*)&hon_u->wax_u,
+  hon_u->sok_u = h2o_uv_socket_create((uv_handle_t*)&hon_u->wax_u,
                                       _http_conn_free);
 
   h2o_accept(&((u3_h2o_serv*)htp_u->h2o_u)->cep_u, hon_u->sok_u);

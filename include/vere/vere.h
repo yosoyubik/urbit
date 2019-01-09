@@ -214,11 +214,12 @@
         c3_c*            url_c;             //  url
         u3_hhed*         hed_u;             //  headers
         u3_hbod*         bod_u;             //  body
-        u3_hbod*         rub_u;             //  exit of send queue
-        u3_hbod*         bur_u;             //  entry of send queue
+        c3_w             bsz_u;             //  total body size
+        c3_w             cbs_u;             //  current body size
+        h2o_iovec_t      iov_u;             //  io vector
         h2o_iovec_t*     vec_u;             //  send-buffer array
         u3_cres*         res_u;             //  nascent response
-        h2o_mem_pool_t*   pol_u;            //  memory pool for body
+        h2o_mem_pool_t   pol_u;             //  memory pool for body
         struct _u3_creq* nex_u;             //  next in list
         struct _u3_creq* pre_u;             //  previous in list
       } u3_creq;
