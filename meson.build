@@ -1,4 +1,4 @@
-project('urbit', 'c', meson_version: '>=0.29.0')
+project('urbit', 'c', 'rust', meson_version: '>=0.29.0')
 
 legacy_meson = false
 
@@ -343,13 +343,23 @@ deps = [argon2_dep,
         sigsegv_dep,
         softfloat3_dep]
 
-executable('urbit',
-sources : sources,
-include_directories : incdir,
-c_args : os_c_flags,
-link_args: os_link_flags,
-dependencies: deps + os_deps,
-install: true)
+rusthello = library(
+  'rusthello',
+  'rusthello/hello.rs',
+  rust_crate_type: 'cdylib',
+  install: true
+)
+
+executable(
+  'urbit',
+  sources             : sources,
+  link_with           : rusthello,
+  include_directories : incdir,
+  c_args              : os_c_flags,
+  link_args           : os_link_flags,
+  dependencies        : deps + os_deps,
+  install             : true
+)
 
 # XX shrink this list
 test_sources = noun_src + jets_all_src + vere_sans_main

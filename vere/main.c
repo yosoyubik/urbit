@@ -485,10 +485,14 @@ _stop_exit(c3_i int_i)
   u3_lo_bail();
 }
 
+void hello_from_rust();
+
 c3_i
 main(c3_i   argc,
      c3_c** argv)
 {
+  hello_from_rust();
+
   //  Parse options.
   //
   if ( c3n == _main_getopt(argc, argv) ) {

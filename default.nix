@@ -17,8 +17,8 @@ let
     with darwin.apple_sdk.frameworks;
       [ Cocoa CoreServices ]);
 
-  deps = [ cmark curl gcc gmp libsigsegv meson ncurses ninja pkgconfig zlib
-           re2c openssl ];
+  deps = [ cargo cmark curl gcc gmp libsigsegv meson ncurses ninja
+           openssl pkgconfig re2c rustc zlib ];
 
   isGitDir = (path: type: type != "directory" || baseNameOf path != ".git");
 
