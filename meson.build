@@ -343,10 +343,10 @@ deps = [argon2_dep,
         sigsegv_dep,
         softfloat3_dep]
 
-rusthello = library(
+rusthello = static_library(
   'rusthello',
   'rusthello/hello.rs',
-  rust_crate_type: 'cdylib',
+  rust_crate_type: 'staticlib',
   install: true
 )
 
