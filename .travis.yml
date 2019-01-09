@@ -30,17 +30,19 @@ script:
 addons:
   apt:
     packages:
+    - cargo
+    - gcc
+    - gdb
+    - libcurl4-gnutls-dev
+    - libgmp3-dev
+    - libncurses5-dev
+    - libsigsegv-dev
+    - libssl-dev
+    - openssl
     - python3
     - python3-pip
-    - libgmp3-dev
-    - libsigsegv-dev
-    - openssl
-    - libssl-dev
-    - libncurses5-dev
-    - gcc
-    - libcurl4-gnutls-dev
+    - rustc
     - unzip
-    - gdb
 # before_deploy: "make deb" # TODO
 deploy:
   skip_cleanup: true
