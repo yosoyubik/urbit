@@ -1,5 +1,8 @@
 project('urbit', 'c', 'rust', meson_version: '>=0.29.0')
 
+cargo = find_program('cargo', required: true)
+cargo_vendor = find_program('cargo-vendor', required: false)
+
 legacy_meson = false
 
 detect_meson_version = run_command('meson', '--version')
@@ -344,8 +347,8 @@ deps = [argon2_dep,
         softfloat3_dep]
 
 rusthello = static_library(
-  'rusthello',
-  'rusthello/hello.rs',
+  'src',
+  'src/main.rs',
   rust_crate_type: 'staticlib',
   install: true
 )
