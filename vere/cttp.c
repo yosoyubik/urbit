@@ -27,7 +27,6 @@ static c3_c* _cttp_ceq_to_host_hed(u3_creq* ceq_u);
 static void timeout_cb(h2o_timer_t *entry);
 int fill_body(h2o_iovec_t *reqbuf, u3_creq* ceq_u);
 
-
 struct st_timeout_ctx {
     h2o_httpclient_t *client;
     h2o_timer_t _timeout;
@@ -348,11 +347,9 @@ _cttp_cres_fire_body(u3_cres* res_u, u3_hbod* bod_u)
   c3_assert(!bod_u->nex_u);
 
   if ( !(res_u->bod_u) ) {
-    res_u->bod_u = res_u->dob_u = bod_u;
-  }
-  else {
-    res_u->dob_u->nex_u = bod_u;
-    res_u->dob_u = bod_u;
+    res_u->bod_u = bod_u;
+  } else {
+    res_u->bod_u->nex_u = bod_u;
   }
 }
 
@@ -581,23 +578,23 @@ _cttp_creq_unlink(u3_creq* ceq_u)
 static void
 _cttp_creq_free(u3_creq* ceq_u)
 {
+  uL(fprintf(uH, "free ceq_u\n"));
   _cttp_creq_unlink(ceq_u);
 
   _cttp_heds_free(ceq_u->hed_u);
-  // Note: ceq_u->bod_u is covered here
+  free(ceq_u->bod_u);
 
   if ( ceq_u->res_u ) {
     _cttp_cres_free(ceq_u->res_u);
   }
-  
 
   free(ceq_u->hot_c);
   free(ceq_u->por_c);
   free(ceq_u->url_c);
 
-
   free(ceq_u->vec_u);
   free(ceq_u);
+  uL(fprintf(uH, "end of free ceq_u\n"));
 }
 
 /* _cttp_creq_new(): create a request from a +hiss noun
@@ -658,6 +655,7 @@ _cttp_creq_quit(u3_creq* ceq_u)
     return;  // wait to be called again on address resolution
   }
 
+  uL(fprintf(uH, "creq_quit\n"));
   _cttp_creq_free(ceq_u);
 }
 
@@ -669,7 +667,9 @@ _cttp_httr(c3_l num_l, c3_w sas_w, u3_noun mes, u3_noun uct)
   u3_noun htr = u3nt(sas_w, mes, uct);
   u3_noun pox = u3nt(u3_blip, c3__http, u3_nul);
 
+  uL(fprintf(uH, "cttp httr"));
   u3v_plan(pox, u3nt(c3__they, num_l, htr));
+  uL(fprintf(uH, "done with u3v_plan\n"));
 }
 
 /* _cttp_creq_quit(): dispatch error response
@@ -694,6 +694,7 @@ _cttp_creq_respond(u3_creq* ceq_u)
 {
   u3_cres* res_u = ceq_u->res_u;
 
+  uL(fprintf(uH, "creq_respond"));
   _cttp_httr(ceq_u->num_l, res_u->sas_w, res_u->hed,
              ( !res_u->bod_u ) ? u3_nul :
              u3nc(u3_nul, _cttp_bods_to_octs(res_u->bod_u)));
@@ -711,6 +712,7 @@ _cttp_creq_on_body(h2o_httpclient_t* cli_u, const c3_c* err_c)
   uL(fprintf(uH, "on_body\n"));
 
   if ( 0 != err_c && h2o_httpclient_error_is_eos != err_c ) {
+    uL(fprintf(uH, "creq_fail\n"));
     _cttp_creq_fail(ceq_u, err_c);
     return -1;
   }
@@ -718,12 +720,14 @@ _cttp_creq_on_body(h2o_httpclient_t* cli_u, const c3_c* err_c)
   h2o_buffer_t* buf_u = *cli_u->buf;
 
   if ( buf_u->size ) {
+    uL(fprintf(uH, "buf_u has size"));
     _cttp_cres_fire_body(ceq_u->res_u,
                          _cttp_bod_new(buf_u->size, buf_u->bytes));
     h2o_buffer_consume(cli_u->buf, buf_u->size);
   }
 
   if ( h2o_httpclient_error_is_eos == err_c ) {
+    uL(fprintf(uH, "eos now respond"));
     _cttp_creq_respond(ceq_u);
   }
 
@@ -771,7 +775,7 @@ _cttp_creq_on_proceed(h2o_httpclient_t *cli_u, size_t written,
       memset(tctx, 0, sizeof(*tctx));
       tctx->client = cli_u;
       tctx->_timeout.cb = timeout_cb;
-      h2o_timer_link(cli_u->ctx->loop, 0, &tctx->_timeout);
+      h2o_timer_link(cli_u->ctx->loop, 100, &tctx->_timeout);
   }
 }
 
@@ -795,17 +799,18 @@ int fill_body(h2o_iovec_t *reqbuf, u3_creq* ceq_u)
 
 static void timeout_cb(h2o_timer_t *entry)
 {
+    uL(fprintf(uH, "timeout cb\n"));
     static h2o_iovec_t reqbuf;
     struct st_timeout_ctx *tctx = H2O_STRUCT_FROM_MEMBER(struct st_timeout_ctx, _timeout, entry);
 
     u3_creq* ceq_u = (u3_creq *)tctx->client->data;
 
+    uL(fprintf(uH, "fill body\n"));
     fill_body(&reqbuf, ceq_u);
     h2o_timer_unlink(&tctx->_timeout);
     tctx->client->write_req(tctx->client, reqbuf, ceq_u->cbs_u <= 0);
-    uL(fprintf(uH, "timeout cb\n"));
-    free(tctx);
 
+    free(tctx);
     return;
 }
 
@@ -865,11 +870,9 @@ _cttp_creq_on_connect(h2o_httpclient_t *cli_u, const c3_c *err_c,
                              strlen(hed_u->nam_c), 1, hed_u->nam_c, hed_u->val_c, 
                              strlen(hed_u->val_c));
       *num_headers = *num_headers + 1;
-      uL(fprintf(uH, "nam: %s, val %s \n", hed_u->nam_c, hed_u->val_c));
       hed_u = hed_u->nex_u;
     }
 
-    uL(fprintf(uH, "continuing\n"));
     *headers = headers_vec.entries;
     *proceed_req_cb = _cttp_creq_on_proceed;
   }
@@ -890,7 +893,6 @@ _cttp_creq_connect(u3_creq* ceq_u)
   h2o_httpclient_connect(NULL, &(ceq_u->pol_u), ceq_u, u3_Host.ctp_u.ctx_u,
                           u3_Host.ctp_u.con_u, &url, _cttp_creq_on_connect);
   
-  uL(fprintf(uH, "client connect\n"));
   // set hostname for TLS handshake
   /*
    * TODO: fix TLS
@@ -958,6 +960,8 @@ _cttp_creq_resolve(u3_creq* ceq_u)
 
   if ( 0 != (sas_i = uv_getaddrinfo(u3L, adr_u, _cttp_creq_resolve_cb,
                                          ceq_u->hot_c, por_c, &hin_u)) ) {
+    uL(fprintf(uH, "fail in res\n"));
+
     _cttp_creq_fail(ceq_u, uv_strerror(sas_i));
   }
 }
@@ -1060,6 +1064,7 @@ _cttp_init_h2o()
   c3_d tim_u = 300 * 1000;
 
   h2o_httpclient_ctx_t* ctx_u = c3_calloc(sizeof(*ctx_u));
+  ctx_u->max_buffer_size = SIZE_MAX;
   ctx_u->http2.ratio = 1;
   ctx_u->loop = u3L;
   ctx_u->io_timeout = tim_u;
@@ -1074,7 +1079,7 @@ _cttp_init_h2o_socketpool(h2o_httpclient_ctx_t* ctx_u)
 {
   h2o_socketpool_t* sok_u = c3_calloc(sizeof(*sok_u));
   h2o_socketpool_init_global(sok_u, 10);
-  h2o_socketpool_set_timeout(sok_u, 300 * 1000);
+  h2o_socketpool_set_timeout(sok_u, 30 * 1000);
   h2o_socketpool_register_loop(sok_u, ctx_u->loop);
 
   return sok_u;
@@ -1095,6 +1100,7 @@ u3_cttp_ef_thus(c3_l    num_l,
 {
   u3_creq* ceq_u;
 
+  uL(fprintf(uH, "received thus\n"));
   if ( u3_nul == cuq ) {
     ceq_u =_cttp_creq_find(num_l);
 
