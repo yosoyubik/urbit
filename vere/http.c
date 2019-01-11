@@ -43,7 +43,7 @@ static const c3_i TCP_BACKLOG = 16;
 
 //  XX temporary, add to u3_http_ef_form
 //
-#define PROXY_DOMAIN "arvo.network"
+#define PROXY_DOMAIN "fake.urbit.org"
 
 /* _http_vec_to_meth(): convert h2o_iovec_t to meth
 */
