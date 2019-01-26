@@ -109,6 +109,25 @@
       void
       u3t_event_trace(const c3_c* name, c3_c type);
 
+      void
+      u3t_duct_open(c3_c* pat_c);
+
+    /* u3t_duct_close():
+    */
+      void
+      u3t_duct_close(void);
+
+      void
+      u3t_duct_event_start(u3_noun ovo);
+
+      void
+      u3t_duct_event_stop(u3_noun ova);
+
+    /* u3t_nock_duct_log(): record a duct stack operation.
+    */
+      void
+      u3t_nock_duct_log(u3_noun duct);
+
     /* u3t_damp(): print and clear profile data.
     */
       void

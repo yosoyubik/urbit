@@ -91,9 +91,13 @@ _main_getopt(c3_i argc, c3_c** argv)
   u3_Host.ops_u.nam_c = 0;
 
   while ( -1 != (ch_i=getopt(argc, argv,
-                 "G:B:K:A:H:w:u:j:e:E:f:F:k:m:p:LabcCdgqstvxPDRS")) ) {
+                 "G:B:K:A:H:w:u:j:e:E:f:F:k:m:p:X:LabcCdgqstvxPDRS")) ) {
 
     switch ( ch_i ) {
+      case 'X': {
+        u3_Host.ops_u.xxx_c = strdup(optarg);
+        break;
+      }
       case 'B': {
         u3_Host.ops_u.pil_c = strdup(optarg);
         break;
@@ -659,6 +663,12 @@ main(c3_i   argc,
       if ( u3_Host.ops_u.json_file_c ) {
         u3C.wag_w |= u3o_trace;
         u3t_trace_open(u3_Host.ops_u.json_file_c);
+      }
+
+      /* Set Xploration flag
+      */
+      if ( 0 != u3_Host.ops_u.xxx_c ) {
+        u3t_duct_open(u3_Host.ops_u.xxx_c);
       }
     }
     u3m_boot(u3_Host.ops_u.nuu,

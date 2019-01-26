@@ -1588,6 +1588,8 @@ _raft_punk(u3_noun ovo)
   }
 #endif
 
+  u3t_duct_event_start(u3k(ovo));
+
   // TODO: Embed event number here?
   u3t_event_trace("Running", 'b');
   gon = u3m_soft(sec_w, u3v_poke, u3k(ovo));
@@ -2062,6 +2064,9 @@ u3_raft_chip(void)
     }
 
     _raft_kick(u3k(vir));
+
+    u3t_duct_event_stop(u3k(vir));
+
     _raft_grab(vir);
 
     u3z(rus);

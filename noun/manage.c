@@ -828,7 +828,13 @@ u3m_love(u3_noun pro)
     u3p(u3h_root) bas_p = u3R->jed.bas_p;
     u3p(u3h_root) byc_p = u3R->byc.har_p;
 
+    u3_noun duc = u3R->pro.duct;
+
     u3m_fall();
+
+    u3R->pro.duct = u3qb_weld(u3nc(u3nc(c3__mock, c3__lose),
+                                   u3a_take(duc)),
+                              u3R->pro.duct);
 
     pro = u3a_take(pro);
 
@@ -1018,6 +1024,9 @@ u3m_soft_run(u3_noun gul,
     u3R->pro.don = u3to(u3_road, u3R->par_p)->pro.don;
     u3R->pro.trace = u3to(u3_road, u3R->par_p)->pro.trace;
     u3R->bug.tax = 0;
+
+
+    u3R->pro.duct = u3nc(u3nc(c3__mock, c3__gain), u3_nul);
   }
   u3t_on(coy_o);
 
@@ -1112,6 +1121,8 @@ u3m_soft_esc(u3_noun ref, u3_noun sam)
     u3R->pro.don = u3to(u3_road, u3R->par_p)->pro.don;
     u3R->pro.trace = u3to(u3_road, u3R->par_p)->pro.trace;
     u3R->bug.tax = 0;
+
+    u3R->pro.duct = u3nc(u3nc(c3__mock, c3__gain), u3_nul);
   }
 
   /* Trap for exceptions.

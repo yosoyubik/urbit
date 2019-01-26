@@ -147,6 +147,7 @@
           c3_d    cel_d;                      //  cell allocations
           u3_noun don;                        //  (list batt)
           u3_noun trace;                      //  (list trace)
+          u3_noun duct;                       //  duct stack
           u3_noun day;                        //  doss, only in u3H (moveme)
         } pro;
 

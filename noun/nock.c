@@ -541,7 +541,8 @@ _n_nock_on(u3_noun bus, u3_noun fol)
 #define KUTS 84
 #define KITB 85
 #define KITS 86
-#define LAST 87
+#define DUCT 87
+#define LAST 88
 
 /* _n_arg(): return the size (in bytes) of an opcode's argument
  */
@@ -1018,6 +1019,7 @@ static char* opcode_names[] = {
   "musm", "kusm",
   "mutb", "muts", "mitb", "mits",
   "kutb", "kuts", "kitb", "kits",
+  "duct",
 };
 #endif
 
@@ -1110,6 +1112,12 @@ _n_bint(u3_noun* ops, u3_noun hif, u3_noun nef, c3_o los_o, c3_o tel_o)
         op_y   = (c3y == los_o) ? SLIB : SKIB; // overflows to SLIS / SKIS
         ++tot_w; _n_emit(ops, u3nt(op_y, mem_w, u3k(nef)));
         tot_w += mem_w; _n_apen(ops, mem);
+        break;
+
+      case c3__duct:
+        tot_w += _n_comp(ops, hod, c3n, c3n);
+        ++tot_w; _n_emit(ops, DUCT);
+        tot_w += _n_comp(ops, nef, los_o, tel_o);
         break;
       }
     }
@@ -1635,6 +1643,7 @@ _n_burn(u3n_prog* pog_u, u3_noun bus, c3_ys mov, c3_ys off)
     &&do_musm, &&do_kusm,
     &&do_mutb, &&do_muts, &&do_mitb, &&do_mits,
     &&do_kutb, &&do_kuts, &&do_kitb, &&do_kits,
+    &&do_duct,
   };
 
   u3j_site* sit_u;
@@ -2302,6 +2311,11 @@ _n_burn(u3n_prog* pog_u, u3_noun bus, c3_ys mov, c3_ys off)
       top = _n_peek(off);
     edit_in:
       *top = u3i_edit(*top, x, o);
+      BURN();
+
+    do_duct:
+      x = _n_pep(mov, off);
+      u3t_nock_duct_log(x);
       BURN();
   }
 }

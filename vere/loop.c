@@ -250,6 +250,7 @@ u3_lo_exit(void)
   if ( c3y == __(u3C.wag_w & u3o_trace) ) {
     printf("saving trace file.\r\n");
     u3t_trace_close();
+    u3t_duct_close();
   }
 }
 

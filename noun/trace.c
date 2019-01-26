@@ -301,6 +301,8 @@ u3t_flee(void)
 static FILE* trace_file_u = NULL;
 static int nock_pid_i = 0;
 
+static FILE* duct_file_u = 0;
+
 /*  u3t_trace_open(): opens a trace file and writes the preamble.
 */
 void
@@ -482,6 +484,173 @@ u3t_event_trace(const c3_c* name, c3_c type)
           type,
           nock_pid_i,
           u3t_trace_time());
+}
+
+/* u3t_duct_open():
+*/
+void
+u3t_duct_open(c3_c* pat_c)
+{
+  printf("trace: tracing to %s\n", pat_c);
+  duct_file_u = fopen(pat_c, "w");
+  if ( 0 == nock_pid_i ) {
+    nock_pid_i = (int)getpid();
+  }
+
+  fprintf(duct_file_u, "[ {}");
+}
+
+/* u3t_duct_close():
+*/
+void
+u3t_duct_close(void)
+{
+  if ( 0 != duct_file_u ) {
+    fprintf(duct_file_u, " ]");
+    fclose(duct_file_u);
+  }
+}
+
+void
+u3t_duct_event_start(u3_noun ovo)
+{
+  c3_d tim_d   = u3t_trace_time();
+  u3_noun time = u3i_chubs(1, &tim_d);
+
+  u3_noun wire, tag;
+  u3x_trel(ovo, &wire, &tag, 0);
+
+  u3R->pro.duct = u3nc(u3nq(c3__vent, u3k(wire), u3k(tag), time), u3_nul);
+  u3z(ovo);
+}
+
+void
+u3t_duct_event_stop(u3_noun ova)
+{
+  if ( 0 == duct_file_u ) {
+    return;
+  }
+
+  u3_noun duc = u3kb_flop(u3R->pro.duct);
+  u3R->pro.duct = u3_nul;
+
+
+  u3_noun i, t;
+
+  for (t = duc; u3_nul != t; t = u3t(t)) {
+    i = u3h(t);
+
+    switch (u3h(i)) {
+      default: {
+        u3m_p("duct", i);
+        c3_assert(0);
+      }
+
+      case c3__vent: {
+        c3_c* wir_c = trace_pretty(u3h(u3t(i)));
+        c3_c* ven_c = u3r_string(u3h(u3t(u3t(i))));
+
+        fprintf(duct_file_u,
+              ", {\"event\": \"%s\", \"wire\": \"%s\"} \n",
+              ven_c,
+              wir_c);
+
+        free(wir_c);
+        free(ven_c);
+        break;
+      }
+
+      case c3__mock: {
+        // if ( c3__lose == u3t(i) ) {
+        //   fprintf(duct_file_u, ", {\"mock\": \"end\"} \n");
+        // }
+        // else {
+        //   fprintf(duct_file_u, ", {\"mock\": \"start\"} \n");
+        // }
+
+        break;
+      }
+
+      case c3__move: {
+        u3_noun ven, tim;
+        u3x_cell(u3t(i), &ven, &tim);
+
+        c3_d  tim_d = u3r_chub(0, tim);
+
+        switch (u3h(ven)) {
+          default: {
+            u3m_p("move", ven);
+            c3_assert(0);
+          }
+
+          case c3__give: {
+            u3_noun van, tag, duc;
+            u3x_trel(u3t(ven), &van, &tag, &duc);
+
+            c3_c* van_c = u3r_string(van);
+            c3_c* tag_c = u3r_string(tag);
+            c3_c* duc_c = trace_pretty(duc);
+
+            fprintf(duct_file_u,
+                  ", {\"give\": \"%s\", \"vane\": \"%s\", \"duct\": \"%s\", \"time\": \"%" PRIu64 "\"} \n",
+                  tag_c,
+                  van_c,
+                  duc_c,
+                  tim_d);
+
+            free(van_c);
+            free(tag_c);
+            free(duc_c);
+            break;
+          }
+
+          case c3__pass: {
+            u3_noun nav, tag, wir, duc;
+            u3x_qual(u3t(ven), &nav, &tag, &wir, &duc);
+
+            c3_c* nav_c = u3r_string(u3h(nav));
+            c3_c* van_c = u3r_string(u3t(nav));
+            c3_c* tag_c = u3r_string(tag);
+            c3_c* wir_c = trace_pretty(wir);
+            c3_c* duc_c = trace_pretty(duc);
+
+            fprintf(duct_file_u,
+                  ", {\"pass\": \"%s\", \"from\": \"%s\", \"to\": \"%s\", \"wire\": \"%s\", \"duct\": \"%s\", \"time\": \"%" PRIu64 "\"} \n",
+                  tag_c,
+                  nav_c,
+                  van_c,
+                  wir_c,
+                  duc_c,
+                  tim_d);
+
+            free(nav_c);
+            free(van_c);
+            free(tag_c);
+            free(wir_c);
+            free(duc_c);
+            break;
+          }
+
+          case c3__slip: {
+            continue;
+          }
+        }
+      }
+    }
+  }
+
+  u3z(duc);
+  u3z(ova);
+}
+
+/* u3t_nock_duct_log(): record a duct stack operation.
+*/
+void
+u3t_nock_duct_log(u3_noun duct)
+{
+  c3_d tim_d   = u3t_trace_time();
+  u3_noun time = u3i_chubs(1, &tim_d);
+  u3R->pro.duct = u3nc(u3nt(c3__move, duct, time), u3R->pro.duct);
 }
 
 extern FILE*

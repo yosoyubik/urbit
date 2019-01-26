@@ -612,6 +612,7 @@
         c3_o    veb;                        //  -v, verbose (inverse of -q)
         c3_c*   who_c;                      //  -w, begin with ticket
         c3_o    tex;                        //  -x, exit after loading
+        c3_c*   xxx_c;                      //  -X, Xploration
       } u3_opts;
 
     /* u3_host: entire host.
