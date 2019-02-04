@@ -6,6 +6,8 @@
 #include <pthread.h>
 
 static c3_o _ct_lop_o;
+static c3_c* _pretty_duct(u3_noun);
+static c3_c* _pretty_path(u3_noun);
 
 /* u3t_push(): push on trace stack.
 */
@@ -419,6 +421,61 @@ _in_trace_pretty(u3_noun som, c3_c* str_c)
   }
 }
 
+/* _pretty_path(): pretty-print a path noun as a string. RETAIN
+*/
+static c3_c*
+_pretty_path(u3_noun pax)
+{
+  c3_c* res_c = c3_calloc(2048);
+  c3_c* cur_c = res_c;
+
+  c3_w len_w;
+  while ( u3_nul != pax ) {
+    cur_c[0] = '/'; cur_c++;
+    c3_assert( c3y == u3a_is_atom(u3h(pax)) );
+    u3m_p("pax", pax);
+    len_w = u3r_met(3, u3k(u3h(pax)));
+    u3r_bytes(0, len_w, (c3_y *)cur_c, u3k(u3h(pax)));
+    cur_c += len_w;
+    pax = u3t(pax);
+  }
+  return res_c;
+}
+
+/* _pretty_duct(): pretty-print a duct noun as a string. RETAIN
+*/
+static c3_c*
+_pretty_duct(u3_noun hen)
+{
+  c3_c* res_c = c3_calloc(2048);
+  c3_c* cur_c = res_c;
+  c3_c* pax_c;
+
+  cur_c[0] = '['; cur_c++;
+  cur_c[0] = '"'; cur_c++;
+
+  while ( u3_nul != hen ) {
+    pax_c = _pretty_path(u3h(hen));
+
+    c3_w len_w = (c3_w)strlen(pax_c);
+    strncpy(cur_c, pax_c, len_w);
+    cur_c += len_w;
+
+    //  no trailing commas
+    //
+    if ( u3_nul != u3t(hen) ) {
+      cur_c[0] = '"'; cur_c++;
+      cur_c[0] = ','; cur_c++;
+      cur_c[0] = '"'; cur_c++;
+    }
+    hen = u3t(hen);
+  }
+
+  cur_c[0] = '"'; cur_c++;
+  cur_c[0] = ']';
+  return res_c;
+}
+
 static c3_c*
 trace_pretty(u3_noun som)
 {
@@ -547,7 +604,7 @@ u3t_duct_event_stop(u3_noun ova)
       }
 
       case c3__vent: {
-        c3_c* wir_c = trace_pretty(u3h(u3t(i)));
+        c3_c* wir_c = _pretty_path(u3h(u3t(i)));
         c3_c* ven_c = u3r_string(u3h(u3t(u3t(i))));
 
         fprintf(duct_file_u,
@@ -589,10 +646,10 @@ u3t_duct_event_stop(u3_noun ova)
 
             c3_c* van_c = u3r_string(van);
             c3_c* tag_c = u3r_string(tag);
-            c3_c* duc_c = trace_pretty(duc);
+            c3_c* duc_c = _pretty_duct(duc);
 
             fprintf(duct_file_u,
-                  ", {\"give\": \"%s\", \"vane\": \"%s\", \"duct\": \"%s\", \"time\": \"%" PRIu64 "\"} \n",
+                  ", {\"give\": \"%s\", \"vane\": \"%s\", \"duct\": %s, \"time\": \"%" PRIu64 "\"} \n",
                   tag_c,
                   van_c,
                   duc_c,
@@ -611,11 +668,11 @@ u3t_duct_event_stop(u3_noun ova)
             c3_c* nav_c = u3r_string(u3h(nav));
             c3_c* van_c = u3r_string(u3t(nav));
             c3_c* tag_c = u3r_string(tag);
-            c3_c* wir_c = trace_pretty(wir);
-            c3_c* duc_c = trace_pretty(duc);
+            c3_c* wir_c = _pretty_path(wir);
+            c3_c* duc_c = _pretty_duct(duc);
 
             fprintf(duct_file_u,
-                  ", {\"pass\": \"%s\", \"from\": \"%s\", \"to\": \"%s\", \"wire\": \"%s\", \"duct\": \"%s\", \"time\": \"%" PRIu64 "\"} \n",
+                  ", {\"pass\": \"%s\", \"from\": \"%s\", \"to\": \"%s\", \"wire\": \"%s\", \"duct\": %s, \"time\": \"%" PRIu64 "\"} \n",
                   tag_c,
                   nav_c,
                   van_c,
