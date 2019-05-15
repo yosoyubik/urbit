@@ -208,7 +208,17 @@
     {
       return u3m_bail(c3__fail);
     } else {
-      return _cqfu_peek(van, sut, way, axe);
+      c3_m    fun_m = 141 + c3__peek + ((!!u3r_at(u3qfu_van_vet, van)) << 8);
+      u3_noun pro   = u3z_find_3(fun_m, sut, way, axe);
+
+      if ( u3_none != pro ) {
+        return pro;
+      }
+      else {
+        pro = u3n_nock_on(u3k(cor), u3k(u3x_at(2, cor)));
+
+        return u3z_save_3(fun_m, sut, way, axe, pro);
+      }
     }
   }
 
