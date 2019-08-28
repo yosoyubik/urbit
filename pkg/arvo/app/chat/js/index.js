@@ -44525,6 +44525,7 @@
             class InitialReducer {
               reduce(json, state) {
                 let data = lodash.get(json, 'initial', false);
+                console.log('initial reducer');
                 console.log(data);
               }
             }
@@ -44683,30 +44684,6 @@
                   });
               }
 
-              hall(data) {
-                this.action("hall", "hall-action", data);
-              }
-              
-              addPendingMessage(data) {
-                let pendingMap = store.state.pendingMessages;
-                if (pendingMap.has(data.aud[0])) {
-                  pendingMap.get(data.aud[0]).push(data);     
-                } else {
-                  pendingMap.set(data.aud[0], [data]);
-                }
-                store.setState({
-                  pendingMessages: pendingMap
-                });
-              }
-
-              chat(lis) {
-                this.action("chat", "chat-action", {
-                  actions: {
-                    lis
-                  }
-                });
-              }
-
               action(appl, mark, data) {
                 return new Promise((resolve, reject) => {
                   window.urb.poke(ship, appl, mark, data,
@@ -44719,90 +44696,35 @@
                 });
               }
 
-              notify(aud, bool) {
-                this.hall({
-                  notify: {
-                    aud,
-                    pes: !!bool ? 'hear' : 'gone'
-                  }
+              groups(data) {
+                this.action("groups", "group-action", data);
+              }
+
+              bundle(path) {
+                this.groups({
+                  path
                 });
               }
 
-              permit(cir, aud, message) {
-                this.hall({
-                  permit: {
-                    nom: cir,
-                    sis: aud,
-                    inv: true
-                  }
-                });
-
-                if (message) {
-                  this.invite(cir, aud);
-                }
-              }
-
-              unpermit(cir, ship) {
-                /*
-                 * lol, never send an unpermit to yourself.
-                 * it puts your ship into an infinite loop.
-                 * */
-                if (ship === window.ship) {
-                  return;
-                }
-                this.hall({
-                  permit: {
-                    nom: cir,
-                    sis: [ship],
-                    inv: false
-                  }
+              unbundle(path) {
+                this.groups({
+                  path
                 });
               }
 
-              invite(cir, aud) {
-                let audInboxes = aud.map((aud) => `~${aud}/i`);
-                let inviteMessage = {
-                  aud: audInboxes,
-                  ses: [{
-                    inv: {
-                      inv: true,
-                      cir: `~${window.ship}/${cir}`
-                    }
-                  }]
-                };
-
-                this.hall({
-                  phrase: inviteMessage
+              add(members, path) {
+                this.groups({
+                  path
                 });
               }
 
-              source(nom, sub) {
-                this.hall({
-                  source: {
-                    nom: "inbox",
-                    sub: sub,
-                    srs: [nom]
-                  }
+              remove(members, path) {
+                this.groups({
+                  path
                 });
               }
 
-              delete(nom) {
-                this.hall({
-                  delete: {
-                    nom,
-                    why: ''
-                  }
-                });
-              }
 
-              read(nom, red) {
-                this.hall({
-                  read: {
-                    nom,
-                    red
-                  }
-                });
-              }
             }
 
             let api = new UrbitApi();
