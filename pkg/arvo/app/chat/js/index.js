@@ -44524,12 +44524,16 @@
 
             class InitialReducer {
               reduce(json, state) {
-                let data = lodash.get(json, 'initial', false);
-                console.log('initial reducer');
-                console.log(data);
+                let data = lodash.get(json, 'inbox-initial', false);
                 if (data) {
                   state.inbox = data;
+                }
 
+                data = lodash.get(json, 'groups-initial', false);
+                if (data) {
+                  for (let group in data) {
+                    state.groups[group] = new Set(data[group]);
+                  }
                 }
               }
             }
@@ -44631,6 +44635,21 @@
               setAuthTokens(authTokens) {
                 this.authTokens = authTokens;
                 this.bindPaths = [];
+
+                this.groups = {
+                  bundle: this.groupBundle.bind(this),
+                  unbundle: this.groupBundle.bind(this),
+                  add: this.groupAdd.bind(this),
+                  remove: this.groupRemove.bind(this)
+                };
+                
+                this.inbox = {
+                  create: this.inboxCreate.bind(this),
+                  delete: this.inboxDelete.bind(this),
+                  message: this.inboxMessage.bind(this),
+                  read: this.inboxRead.bind(this)
+                };
+
               }
 
               // keep default bind to hall, since its bind procedure more complex for now AA
@@ -44671,19 +44690,19 @@
                 this.action("groups", "group-action", data);
               }
 
-              bundle(path) {
+              groupBundle(path) {
                 this.groups({
                   bundle: path
                 });
               }
 
-              unbundle(path) {
+              groupUnbundle(path) {
                 this.groups({
                   unbundle: path
                 });
               }
 
-              add(members, path) {
+              groupAdd(members, path) {
                 this.groups({
                   add: {
                     members,
@@ -44692,10 +44711,51 @@
                 });
               }
 
-              remove(members, path) {
+              groupRemove(members, path) {
                 this.groups({
                   remove: {
                     members, path
+                  }
+                });
+              }
+
+              inbox(data) {
+                this.action("inbox", "inbox-action", data);
+              }
+
+              inboxCreate(path, owner) {
+                this.inbox({
+                  create: {
+                    path, owner
+                  }
+                });
+              }
+
+              inboxDelete(path) {
+                this.inbox({
+                  delete: {
+                    path
+                  }
+                });
+              }
+
+              inboxMessage(path, author, when, message) {
+                this.inbox({
+                  message: {
+                    path,
+                    envelope: {
+                      author,
+                      when,
+                      message
+                    }
+                  }
+                });
+              }
+
+              inboxRead(path, read) {
+                this.inbox({
+                  read: {
+                    path, read
                   }
                 });
               }
@@ -50811,22 +50871,12 @@ lyrtesmudnytbyrsenwegfyrmurtelreptegpecnelnevfes\
               }
 
               initializeChat() {
-                api.bind('/primary', 'PUT', api.authTokens.ship, 'inbox-view',
+                api.bind('/all', 'PUT', api.authTokens.ship, 'inbox',
                   this.handleEvent.bind(this),
                   this.handleError.bind(this));
                 api.bind('/all', 'PUT', api.authTokens.ship, 'groups',
                   this.handleEvent.bind(this),
                   this.handleError.bind(this));
-              }
-
-              fetchMessages(circle, start, end) {
-                fetch(`/~chat/scroll/${circle}/${start}/${end}`)
-                  .then((response) => response.json())
-                  .then((json) => {
-                    store.handleEvent({
-                      data: json
-                    });
-                  });
               }
 
               handleEvent(diff) {
@@ -50836,9 +50886,6 @@ lyrtesmudnytbyrsenwegfyrmurtelreptegpecnelnevfes\
 
               handleError(err) {
                 console.error(err);
-                api.bind('/primary', 'PUT', api.authTokens.ship, 'chat',
-                  this.handleEvent.bind(this),
-                  this.handleError.bind(this));
               }
             }
 
