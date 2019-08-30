@@ -44538,10 +44538,10 @@
               }
             }
 
-            class UpdateReducer {
+            class GroupUpdateReducer {
               reduce(json, state) {
                 console.log('update', json);
-                let data = lodash.get(json, 'update', false);
+                let data = lodash.get(json, 'group-update', false);
                 if (data) {
                   this.add(data, state);
                   this.remove(data, state);
@@ -44601,6 +44601,52 @@
 
             }
 
+            class InboxUpdateReducer {
+              reduce(json, state) {
+                console.log('update', json);
+                let data = lodash.get(json, 'inbox-update', false);
+                if (data) {
+                  this.message(data, state);
+                  this.read(data, state);
+                  this.create(data, state);
+                  this.delete(data, state);
+                }
+              }
+
+              message(json, state) {
+                let data = lodash.get(json, 'message', false);
+                if (data) {
+                  state.inbox[data.path].envelopes.push(data.envelope);
+                }
+              }
+
+              read(json, state) {
+                let data = lodash.get(json, 'read', false);
+                if (data) {
+                  state.inbox[data.path].read = data.read;
+                }
+              }
+
+              create(json, state) {
+                let data = lodash.get(json, 'create', false);
+                if (data) {
+                  state.inbox[data.path] = {
+                    envelopes: [],
+                    read: 0,
+                    owner: data.owner
+                  };
+                }
+              }
+
+              delete(json, state) {
+                let data = lodash.get(json, 'delete', false);
+                if (data) {
+                  delete state.inbox[data.path];
+                }
+              }
+              
+            }
+
             class Store {
               constructor() {
                 this.state = {
@@ -44609,7 +44655,8 @@
                 };
 
                 this.initialReducer = new InitialReducer();
-                this.updateReducer = new UpdateReducer();
+                this.groupUpdateReducer = new GroupUpdateReducer();
+                this.inboxUpdateReducer = new InboxUpdateReducer();
                 this.setState = () => {};
               }
 
@@ -44622,7 +44669,8 @@
 
                 console.log(json);
                 this.initialReducer.reduce(json, this.state);
-                this.updateReducer.reduce(json, this.state);
+                this.groupUpdateReducer.reduce(json, this.state);
+                this.inboxUpdateReducer.reduce(json, this.state);
 
                 this.setState(this.state);
               }
@@ -55586,14 +55634,14 @@ lyrtesmudnytbyrsenwegfyrmurtelreptegpecnelnevfes\
               }
 
               getTimeSinceNewestMessage() {
-                return !!this.props.wen ?
-                  moment.unix(this.props.wen / 1000).from(moment.utc())
+                return !!this.props.when ?
+                  moment.unix(this.props.when / 1000).from(moment.utc())
                   : '';
               }
 
               onClick() {
                 const { props } = this;
-                props.history.push('/~chat/' + props.cir);
+                props.history.push('/~chat' + props.box);
               }
 
               render() {
@@ -55753,10 +55801,10 @@ lyrtesmudnytbyrsenwegfyrmurtelreptegpecnelnevfes\
                   invites: []
                 };
 
-                this.setInvitesToReadInterval = setInterval(
+                /*this.setInvitesToReadInterval = setInterval(
                   this.setInvitesToRead.bind(this),
                   1000
-                );
+                );*/
               }
 
               componentDidMount() {
@@ -55820,72 +55868,46 @@ lyrtesmudnytbyrsenwegfyrmurtelreptegpecnelnevfes\
                 this.props.history.push('/~chat/new');
               }
 
-              summarizeMessage(speech) {
-                const fallback = '...';
-                if (lodash.has(speech, 'lin')) {
-                  return speech.lin.msg;
-                } else if (lodash.has(speech, 'url')) {
-                  return speech.url;
-                } else if (lodash.has(speech, 'exp')) {
-                  return '# ' + speech.exp.exp;
-                } else if (lodash.has(speech, 'ire')) {
-                  return this.summarizeMessage(speech.ire.sep);
-                } else if (lodash.has(speech, 'app')) {
-                  return this.summarizeMessage(speech.app.sep);
-                } else if (lodash.has(speech, 'fat')) {
-                  const msg = this.summarizeMessage(speech.fat.sep);
-                  if (msg !== '' && msg !== fallback) return msg;
-                  return 'Attachment' +
-                    (lodash.has(speech, 'fat.tac.name.nom')
-                     ? ': ' + speech.fat.tac.name.nom
-                     : '');
-                } else {
-                  return fallback;
-                }
-              }
-
               render() {
                 const { props, state } = this;
-                let station = props.match.params.ship + '/' + props.match.params.station;
+                let station = props.match.params.ship + props.match.params.station;
 
-                let sidebarItems = props.circles
-                  .filter((cir) => {
-                    return !cir.includes('hall-internal-');
-                  })
-                  .map((cir) => {
-                    let msg = props.messagePreviews[cir];
-                    let content = lodash.has(msg, 'gam.sep')
-                      ? this.summarizeMessage(msg.gam.sep)
+                let sidebarItems = Object.keys(props.inbox)
+                  .map((box) => {
+                    console.log(box);
+                    let msg = props.messagePreviews[box];
+                    let content = lodash.has(msg, 'message')
+                      ? msg.message
                       : 'No messages yet';
-                    let aut = !!msg ? msg.gam.aut : '';
-                    let wen = !!msg ? msg.gam.wen : 0;
+                    let author = !!msg ? msg.author : '';
+                    let when = !!msg ? msg.when : 0;
                     return {
                       msg,
-                      wen,
-                      aut,
+                      when,
+                      author,
                       content,
-                      cir,
-                      title: cir.split('/')[1],
-                      selected: station === cir
+                      box,
+                      title: box.split('/')[1],
+                      selected: station === box
                     };
                   })
                   .sort((a, b) => {
                     return b.wen - a.wen;
                   })
                   .map((obj) => {
-                    let unread = props.unreads[obj.cir];
+                    let unread = props.unreads[obj.box];
 
                     return (
                       react.createElement(SidebarItem, {
-                        key: obj.cir + '/' + obj.wen,
+                        key: obj.box + '/' + obj.when,
                         title: obj.title,
                         description: obj.content,
-                        cir: obj.cir,
-                        wen: obj.wen,
-                        ship: obj.aut,
+                        box: obj.box,
+                        when: obj.when,
+                        ship: obj.author,
                         selected: obj.selected,
                         unread: unread,
-                        history: props.history, __self: this, __source: {fileName: _jsxFileName$6, lineNumber: 141}}
+                        history: props.history, __self: this, __source: {fileName: _jsxFileName$6, lineNumber: 115}}
                       )
                     );
                   });
@@ -55896,22 +55918,22 @@ lyrtesmudnytbyrsenwegfyrmurtelreptegpecnelnevfes\
                       key: inv.uid,
                       msg: inv,
                       api: props.api,
-                      config: props.inviteConfig, __self: this, __source: {fileName: _jsxFileName$6, lineNumber: 157}}
+                      config: props.inviteConfig, __self: this, __source: {fileName: _jsxFileName$6, lineNumber: 131}}
                     )
                   );
                 });
 
                 return (
-                  react.createElement('div', { className: "h-100 w-100 overflow-x-hidden flex flex-column"    , __self: this, __source: {fileName: _jsxFileName$6, lineNumber: 167}}
-                    , react.createElement('div', { className: "pl3 pr3 pt2 pb3 cf bb b--black-30"      , style: {height: '88px'}, __self: this, __source: {fileName: _jsxFileName$6, lineNumber: 168}}
-                      , react.createElement('h2', { className: "dib w-50 gray"  , __self: this, __source: {fileName: _jsxFileName$6, lineNumber: 169}}, "Chat")
+                  react.createElement('div', { className: "h-100 w-100 overflow-x-hidden flex flex-column"    , __self: this, __source: {fileName: _jsxFileName$6, lineNumber: 141}}
+                    , react.createElement('div', { className: "pl3 pr3 pt2 pb3 cf bb b--black-30"      , style: {height: '88px'}, __self: this, __source: {fileName: _jsxFileName$6, lineNumber: 142}}
+                      , react.createElement('h2', { className: "dib w-50 gray"  , __self: this, __source: {fileName: _jsxFileName$6, lineNumber: 143}}, "Chat")
                       , react.createElement('a', {
                         className: "dib tr w-50 pointer plus-font"    ,
-                        onClick: this.onClickNew.bind(this), __self: this, __source: {fileName: _jsxFileName$6, lineNumber: 170}}, "+")
+                        onClick: this.onClickNew.bind(this), __self: this, __source: {fileName: _jsxFileName$6, lineNumber: 144}}, "+")
                     )
                     , react.createElement('div', { className: "overflow-y-auto", style: {
                       height: 'calc(100vh - 60px - 48px)'
-                    }, __self: this, __source: {fileName: _jsxFileName$6, lineNumber: 174}}
+                    }, __self: this, __source: {fileName: _jsxFileName$6, lineNumber: 148}}
                       , inviteItems
                       , sidebarItems
                     )
@@ -59862,144 +59884,14 @@ lyrtesmudnytbyrsenwegfyrmurtelreptegpecnelnevfes\
             const _jsxFileName$8 = "/Users/logan/Dev/urbit/pkg/interface/chat/src/js/components/lib/message.js";
             class Message extends react_1 {
 
-              renderSpeech(speech) {
-                if (lodash.has(speech, 'lin')) {
-                  return this.renderLin(speech.lin.msg, speech.lin.pat);
-                } else if (lodash.has(speech, 'url')) {
-                  return this.renderUrl(speech.url);
-                } else if (lodash.has(speech, 'exp')) {
-                  return this.renderExp(speech.exp.exp, speech.exp.res);
-                } else if (lodash.has(speech, 'ire')) {
-                  return this.renderSpeech(speech.ire.sep);
-                } else if (lodash.has(speech, 'app')) {
-                  return this.renderSpeech(speech.app.sep);
-                } else if (lodash.has(speech, 'fat')) {
-                  return this.renderFat(speech.fat.sep, speech.fat.tac);
-                } else {
-                  return this.renderUnknown();
-                }
-              }
-
-              renderUnknown() {
-                return this.renderLin('<unknown message type>')
-              }
-
-              renderLin(content, action = false) {
-                if (content === '') {
-                  return null;
-                }
-                //TODO remove once arvo:// urls are supported in url speeches
-                if (content.indexOf('arvo://') === 0) {
-                  return this.renderUrl(content);
-                }
-                return (
-                  react.createElement('p', { className: `body-regular-400 v-top ${action ? 'fs-italic' : ''}`, __self: this, __source: {fileName: _jsxFileName$8, lineNumber: 40}}
-                    , content
-                  )
-                );
-              }
-
-              renderUrl(url) {
-                try {
-                  let urlObject = new URL(url);
-                  let imgMatch =
-                    /(jpg|img|png|gif|tiff|jpeg|JPG|IMG|PNG|TIFF|GIF|webp|WEBP|webm|WEBM)$/
-                    .exec(
-                       urlObject.pathname
-                     );
-                  if (imgMatch) {
-                    return this.renderImageUrl(url);
-                  } else {
-                    let localUrl = this.localizeUrl(url);
-                    return this.renderAnchor(localUrl, url);
-                  }
-                } catch(e) {
-                  console.error('url render error', e);
-                  return this.renderAnchor(url);
-                }
-              }
-
-              renderImageUrl(url) {
-                return this.renderAnchor(url, (
-                  react.createElement('img', {
-                    src: url,
-                    style: {
-                      width:"50%",
-                      maxWidth: '250px'
-                    }, __self: this, __source: {fileName: _jsxFileName$8, lineNumber: 68}}
-                  )
-                ));
-              }
-
-              renderAnchor(href, content) {
-                content = content || href;
-                return (
-                  react.createElement('a', { className: "body-regular",
-                    href: href,
-                    target: "_blank", __self: this, __source: {fileName: _jsxFileName$8, lineNumber: 81}}, content)
-                );
-              }
-
-              renderExp(expression, result) {
-                return (react.createElement(react.Fragment, null
-                  , react.createElement('p', {__self: this, __source: {fileName: _jsxFileName$8, lineNumber: 89}}
-                    , react.createElement('pre', { className: "clamp-attachment pa1 mt0 mb0 bg-light-gray"    , __self: this, __source: {fileName: _jsxFileName$8, lineNumber: 90}}
-                      , expression
-                    )
-                    , react.createElement('pre', { className: "clamp-attachment pa1 mt0 mb0"   , __self: this, __source: {fileName: _jsxFileName$8, lineNumber: 93}}
-                      , result[0].join('\n')
-                    )
-                  )
-                ));
-              }
-
-              renderFat(speech, attachment) {
-                return (react.createElement(react.Fragment, null
-                  , this.renderSpeech(speech)
-                  , this.renderAttachment(attachment)
-                ));
-              }
-
-              renderAttachment(content, title = '') {
-                if (lodash.has(content, 'name')) {
-                  return this.renderAttachment(content.name.tac, content.name.nom);
-                }
-
-                return (react.createElement('details', {__self: this, __source: {fileName: _jsxFileName$8, lineNumber: 112}}
-                  , react.createElement('summary', { className: "inter fs-italic" , __self: this, __source: {fileName: _jsxFileName$8, lineNumber: 113}}, 'Attached: ' + title)
-                  ,  lodash.has(content, 'text')
-                    ? (title === 'long-form')
-                      ? this.renderParagraphs(content.text.split('\n'))
-                      : this.renderPlaintext(content.text)
-                    : lodash.has(content, 'tank')
-                      ? this.renderPlaintext(content.tank.join('\n'))
-                      : null
-                  
-                ));
-              }
-
-              renderParagraphs(paragraphs) {
-                return (react.createElement('div', { className: "clamp-attachment", __self: this, __source: {fileName: _jsxFileName$8, lineNumber: 126}}
-                  , paragraphs.map(p => (react.createElement('p', { className: "mt2", __self: this, __source: {fileName: _jsxFileName$8, lineNumber: 127}}, p)))
-                ));
-              }
-
-              renderPlaintext(text) {
-                return (react.createElement('pre', { className: "clamp-attachment", __self: this, __source: {fileName: _jsxFileName$8, lineNumber: 132}}, text));
-              }
 
               renderContent() {
                 const { props } = this;
-
-                try {
-                  if (!lodash.has(props.msg, 'sep')) {
-                    return this.renderUnknown();
-                  }
-                  return this.renderSpeech(props.msg.sep);
-                } catch (e) {
-                  console.error('speech rendering error', e);
-                  return this.renderUnknown();
-                }
+                return (
+                  react.createElement('p', { className: `body-regular-400 v-top`, __self: this, __source: {fileName: _jsxFileName$8, lineNumber: 13}}
+                    , props.msg.message
+                  )
+                );
               }
 
               renderAuthor() {
@@ -60012,23 +59904,10 @@ lyrtesmudnytbyrsenwegfyrmurtelreptegpecnelnevfes\
                 }
               }
 
-              //NOTE see also lib/chat-input's globalizeUrl
-              localizeUrl(url) {
-                if (typeof url !== 'string') { throw 'Only localize strings!'; }
-                const arvo = 'arvo://';
-                if (url.indexOf(arvo) === 0) {
-                  // this application is being served by an urbit also, so /path will
-                  // point to the arvo url as hosted by this same urbit.
-                  return url.slice(arvo.length);
-                } else {
-                  return url;
-                }
-              }
-
               render() {
                 const { props } = this;
                 let pending = !!props.msg.pending ? ' o-40' : '';
-                let datestamp = moment.unix(props.msg.wen / 1000).format('LL');
+                let datestamp = moment.unix(props.msg.when / 1000).format('LL');
 
                 let paddingTop = props.paddingTop ? 'pt3' : '';
                 let paddingBot = props.paddingBot ? 'pb2' : 'pb1';
@@ -60040,17 +59919,17 @@ lyrtesmudnytbyrsenwegfyrmurtelreptegpecnelnevfes\
                     react.createElement('div', { className: "w-100 pl3 pr3 cf flex " + paddingTop + " " + paddingBot + pending,
                          style: {
                            minHeight: 'min-content'
-                         }, __self: this, __source: {fileName: _jsxFileName$8, lineNumber: 184}}
-                      , react.createElement('div', { className: "fl mr2" , __self: this, __source: {fileName: _jsxFileName$8, lineNumber: 188}}
-                        , react.createElement(Sigil, { ship: props.msg.aut, size: 36, __self: this, __source: {fileName: _jsxFileName$8, lineNumber: 189}} )
+                         }, __self: this, __source: {fileName: _jsxFileName$8, lineNumber: 41}}
+                      , react.createElement('div', { className: "fl mr2" , __self: this, __source: {fileName: _jsxFileName$8, lineNumber: 45}}
+                        , react.createElement(Sigil, { ship: props.msg.author, size: 36, __self: this, __source: {fileName: _jsxFileName$8, lineNumber: 46}} )
                       )
-                      , react.createElement('div', { className: "fr clamp-message" , style: { flexGrow: 1, marginTop: -8 }, __self: this, __source: {fileName: _jsxFileName$8, lineNumber: 191}}
-                        , react.createElement('div', { className: "hide-child", __self: this, __source: {fileName: _jsxFileName$8, lineNumber: 192}}
-                          , react.createElement('p', { className: "v-top label-small-mono gray dib mr3"    , __self: this, __source: {fileName: _jsxFileName$8, lineNumber: 193}}
+                      , react.createElement('div', { className: "fr clamp-message" , style: { flexGrow: 1, marginTop: -8 }, __self: this, __source: {fileName: _jsxFileName$8, lineNumber: 48}}
+                        , react.createElement('div', { className: "hide-child", __self: this, __source: {fileName: _jsxFileName$8, lineNumber: 49}}
+                          , react.createElement('p', { className: "v-top label-small-mono gray dib mr3"    , __self: this, __source: {fileName: _jsxFileName$8, lineNumber: 50}}
                             , this.renderAuthor()
                           )
-                          , react.createElement('p', { className: "v-top label-small-mono gray dib"   , __self: this, __source: {fileName: _jsxFileName$8, lineNumber: 196}}, timestamp)
-                          , react.createElement('p', { className: "v-top label-small-mono ml2 gray dib child"     , __self: this, __source: {fileName: _jsxFileName$8, lineNumber: 197}}
+                          , react.createElement('p', { className: "v-top label-small-mono gray dib"   , __self: this, __source: {fileName: _jsxFileName$8, lineNumber: 53}}, timestamp)
+                          , react.createElement('p', { className: "v-top label-small-mono ml2 gray dib child"     , __self: this, __source: {fileName: _jsxFileName$8, lineNumber: 54}}
                             , datestamp
                           )
                         )
@@ -60065,9 +59944,9 @@ lyrtesmudnytbyrsenwegfyrmurtelreptegpecnelnevfes\
                     react.createElement('div', { className: "w-100 pr3 pb1 cf hide-child flex" + pending,
                          style: {
                            minHeight: 'min-content'
-                         }, __self: this, __source: {fileName: _jsxFileName$8, lineNumber: 209}}
-                      , react.createElement('p', { className: "child pl3 pr2 label-small-mono gray dib"     , __self: this, __source: {fileName: _jsxFileName$8, lineNumber: 213}}, timestamp)
-                      , react.createElement('div', { className: "fr clamp-message" , style: { flexGrow: 1 }, __self: this, __source: {fileName: _jsxFileName$8, lineNumber: 214}}
+                         }, __self: this, __source: {fileName: _jsxFileName$8, lineNumber: 66}}
+                      , react.createElement('p', { className: "child pl3 pr2 label-small-mono gray dib"     , __self: this, __source: {fileName: _jsxFileName$8, lineNumber: 70}}, timestamp)
+                      , react.createElement('div', { className: "fr clamp-message" , style: { flexGrow: 1 }, __self: this, __source: {fileName: _jsxFileName$8, lineNumber: 71}}
                         , this.renderContent()
                       )
                     )
@@ -61492,10 +61371,10 @@ lyrtesmudnytbyrsenwegfyrmurtelreptegpecnelnevfes\
               render() {
                 const { props, state } = this;
 
-                if (props.security && props.security.sec !== 'channel' &&
+                /*if (props.security && props.security.sec !== 'channel' &&
                   !props.security.sis.includes(window.ship)) {
                   return this.readOnlyRender();
-                }
+                }*/
 
                 return (
                   react.createElement('div', { className: "pa3 cf flex black bt b--black-30"     , style: { flexGrow: 1 }, __self: this, __source: {fileName: _jsxFileName$b, lineNumber: 306}}
@@ -61534,9 +61413,7 @@ lyrtesmudnytbyrsenwegfyrmurtelreptegpecnelnevfes\
                 super(props);
 
                 this.state = {
-                  station: props.match.params.ship + "/" + props.match.params.station,
-                  circle: props.match.params.station,
-                  host: props.match.params.ship,
+                  station: '/' + props.match.params.station,
                   numPeople: 0,
                   numPages: 1,
                   scrollLocked: false,
@@ -61547,15 +61424,15 @@ lyrtesmudnytbyrsenwegfyrmurtelreptegpecnelnevfes\
                 this.hasAskedForMessages = false;
                 this.onScroll = this.onScroll.bind(this);
 
-                this.updateReadInterval = setInterval(
+                /*this.updateReadInterval = setInterval(
                   this.updateReadNumber.bind(this),
                   1000
-                );
+                );*/
               }
 
               componentDidMount() {
                 this.updateNumPeople();
-                this.updateReadNumber();
+                //this.updateReadNumber();
               }
 
               componentWillUnmount() {
@@ -61568,18 +61445,14 @@ lyrtesmudnytbyrsenwegfyrmurtelreptegpecnelnevfes\
               componentDidUpdate(prevProps, prevState) {
                 const { props, state } = this;
 
-                if (prevProps.match.params.ship !== props.match.params.ship ||
-                          prevProps.match.params.station !== props.match.params.station
-                ) {
+                if (prevProps.match.params.station !== props.match.params.station) {
                   console.log('switched circle');
                   this.hasAskedForMessages = false;
 
                   clearInterval(this.updateReadInterval);
 
                   this.setState({
-                    station: props.match.params.ship + "/" + props.match.params.station,
-                    circle: props.match.params.station,
-                    host: props.match.params.ship,
+                    station: "/" + props.match.params.station,
                     numPeople: 0,
                     scrollLocked: false
                   }, () => {
@@ -61591,7 +61464,7 @@ lyrtesmudnytbyrsenwegfyrmurtelreptegpecnelnevfes\
                     );
                     this.updateReadNumber();
                   });
-                } else if (!(state.station in props.configs)) {
+                } else if (!(state.station in props.inbox)) {
                   props.history.push('/~chat');
                 }
               }
@@ -61599,6 +61472,8 @@ lyrtesmudnytbyrsenwegfyrmurtelreptegpecnelnevfes\
               updateReadNumber() {
                 const { props, state } = this;
 
+                // TODO
+                return;
                 let internalCircle = 'hall-internal-' + state.circle;
                 let internalStation = `~${window.ship}/${internalCircle}`;
 
@@ -61606,7 +61481,7 @@ lyrtesmudnytbyrsenwegfyrmurtelreptegpecnelnevfes\
                 let regularConfig = props.configs[state.station] || false;
 
                 let config = internalConfig || regularConfig;
-                let messages = props.messages;
+                let messages = props.envelopes;
 
                 let lastMsgNum = (messages.length > 0) ?
                   ( messages[messages.length - 1].num + 1 ) : 0;
@@ -61693,6 +61568,7 @@ lyrtesmudnytbyrsenwegfyrmurtelreptegpecnelnevfes\
               }
 
               updateNumPeople() {
+                return;
                 let conf = this.props.configs[this.state.station] || {};
                 let sis = lodash.get(conf, 'con.sis');
                 let numPeople = !!sis ? sis.length : 0;
@@ -61704,23 +61580,11 @@ lyrtesmudnytbyrsenwegfyrmurtelreptegpecnelnevfes\
               render() {
                 const { props, state } = this;
 
-                let config = props.configs[state.station] || {};
-                let messages = props.messages.slice(0);
+                console.log(props.mailbox);
+                let messages = props.envelopes.slice(0);
                 
-                // Pending messages get pinned to the bottom of the messages queue.
-                
-                let pendingInRoom = 
-                (this.pendingQueue.has(this.state.station)) 
-                ? this.pendingQueue.get(this.state.station) : [];
-
-                pendingInRoom.map(function(value) {
-                  return value.pending = true;
-                });
-
-                messages = messages.concat(pendingInRoom);
-
                 let lastMsgNum = (messages.length > 0) ?
-                  messages[messages.length - 1].num : 0;
+                  messages.length : 0;
 
                 if (messages.length > 50 * state.numPages) {
                   messages = messages
@@ -61729,68 +61593,39 @@ lyrtesmudnytbyrsenwegfyrmurtelreptegpecnelnevfes\
 
                 let reversedMessages = messages.reverse();
                 let chatMessages = reversedMessages.map((msg, i) => {
-                  // Render sigil if previous message is not by the same sender
-                  let gamAut = ['gam', 'aut'];    
-
-                  // Local messages don't have a 'gam' prop, so look for the top level if it doesn't exist.
-                  let aut = msg.aut ? msg.aut : null;
-                  
-                  // No gamAut? Return top level author for the same sender check.
-                  let renderSigil =
-                    lodash.get(reversedMessages[i + 1], gamAut) !== lodash.get(msg, gamAut, aut);
-
-                  // More padding top if previous message is not by the same sender
-                  let paddingTop = renderSigil;
-                  // More padding bot if next message is not by the same sender
-                  let paddingBot =
-                    lodash.get(reversedMessages[i - 1], gamAut) !== lodash.get(msg, gamAut, aut);
-
-                  // Non-local ships don't have pending props.
-                  if (!msg.pending) {
-                    var pending = false;
-                  }
-
-                  // Non-local ships don't have pending props.
-                  if (!pending) {
-                    var pending = false;
-                  }
 
                   return (
                     react.createElement(Message, {
-                      key: msg.gam ? msg.gam.uid : msg.uid,
-                      msg: msg.gam ? msg.gam : msg,
-                      renderSigil: renderSigil,
-                      paddingTop: paddingTop,
-                      paddingBot: paddingBot, 
-                      pending: !!pending, __self: this, __source: {fileName: _jsxFileName$c, lineNumber: 237}})
+                      key: Math.random(),
+                      msg: msg,
+                      renderSigil: true,
+                      paddingTop: 0,
+                      paddingBot: 0, __self: this, __source: {fileName: _jsxFileName$c, lineNumber: 199}} )
                   );
                 });
 
-                let peers = props.peers[state.station] || [window.ship];
-
                 return (
                   react.createElement('div', { key: state.station,
-                    className: "h-100 w-100 overflow-hidden flex flex-column"    , __self: this, __source: {fileName: _jsxFileName$c, lineNumber: 250}}
-                    , react.createElement('div', { className: "pl3 pt2 bb"  , __self: this, __source: {fileName: _jsxFileName$c, lineNumber: 252}}
-                      , react.createElement('h2', {__self: this, __source: {fileName: _jsxFileName$c, lineNumber: 253}}, state.circle)
+                    className: "h-100 w-100 overflow-hidden flex flex-column"    , __self: this, __source: {fileName: _jsxFileName$c, lineNumber: 209}}
+                    , react.createElement('div', { className: "pl3 pt2 bb"  , __self: this, __source: {fileName: _jsxFileName$c, lineNumber: 211}}
+                      , react.createElement('h2', {__self: this, __source: {fileName: _jsxFileName$c, lineNumber: 212}}, state.station)
                       , react.createElement(ChatTabBar, { ...props,
                         station: state.station,
-                        numPeers: peers.length, __self: this, __source: {fileName: _jsxFileName$c, lineNumber: 254}} )
+                        numPeers: 0, __self: this, __source: {fileName: _jsxFileName$c, lineNumber: 213}} )
                     )
                     , react.createElement('div', {
                       className: "overflow-y-scroll pt3 pb2 flex flex-column-reverse"    ,
                       style: { height: 'calc(100% - 157px)', resize: 'vertical' },
-                      onScroll: this.onScroll, __self: this, __source: {fileName: _jsxFileName$c, lineNumber: 258}}
-                      , react.createElement('div', { ref:  el => { this.scrollElement = el; }, __self: this, __source: {fileName: _jsxFileName$c, lineNumber: 262}})
+                      onScroll: this.onScroll, __self: this, __source: {fileName: _jsxFileName$c, lineNumber: 217}}
+                      , react.createElement('div', { ref:  el => { this.scrollElement = el; }, __self: this, __source: {fileName: _jsxFileName$c, lineNumber: 221}})
                       , chatMessages
                     )
                     , react.createElement(ChatInput, {
                       api: props.api,
                       numMsgs: lastMsgNum,
                       station: state.station,
-                      circle: state.circle,
-                      security: config.con,
-                      placeholder: "Message...", __self: this, __source: {fileName: _jsxFileName$c, lineNumber: 265}} )
+                      security: 'channel',
+                      placeholder: "Message...", __self: this, __source: {fileName: _jsxFileName$c, lineNumber: 224}} )
                   )
                 )
               }
@@ -62405,140 +62240,132 @@ lyrtesmudnytbyrsenwegfyrmurtelreptegpecnelnevfes\
               render() {
                 const { props, state } = this;
 
-                let configs = {};
-                let circles = Object.keys(state).filter((path) => {
-                  return !!state[path] && path.split('/')[1] !== 'i';
-                });
-
-                let messages = {};
                 let messagePreviews = {};
-                Object.keys(messages).forEach((stat) => {
-                  let arr = messages[stat];
-                  if (arr.length === 0) {
+                Object.keys(state.inbox).forEach((stat) => {
+                  let envelopes = state.inbox[stat].envelopes;
+                  if (envelopes.length === 0) {
                     messagePreviews[stat] = false;
                   } else {
-                    messagePreviews[stat] = arr[arr.length - 1];
+                    messagePreviews[stat] = envelopes[envelopes.length - 1];
                   }
                 });
 
                 let unreads = {};
-                circles.forEach((cir) => {
-                  unreads[cir] = false;
-                });
-
                 let inviteConfig = false;
 
                 const renderChannelSidebar = (props) => (
                   react.createElement(Sidebar, {
-                    circles: circles,
+                    inbox: state.inbox,
                     messagePreviews: messagePreviews,
-                    invites: invites,
+                    invites: [],
                     unreads: unreads,
                     api: api,
                     inviteConfig: inviteConfig,
-                    ...props, __self: this, __source: {fileName: _jsxFileName$i, lineNumber: 60}}
+                    ...props, __self: this, __source: {fileName: _jsxFileName$i, lineNumber: 50}}
                   )
                 );
 
                 return (
-                  react.createElement(BrowserRouter, {__self: this, __source: {fileName: _jsxFileName$i, lineNumber: 72}}
-                    , react.createElement('div', {__self: this, __source: {fileName: _jsxFileName$i, lineNumber: 73}}
+                  react.createElement(BrowserRouter, {__self: this, __source: {fileName: _jsxFileName$i, lineNumber: 62}}
+                    , react.createElement('div', {__self: this, __source: {fileName: _jsxFileName$i, lineNumber: 63}}
                     , react.createElement(Route, { exact: true, path: "/~chat",
                       render:  (props) => {
                         return (
                           react.createElement(Skeleton, {
-                            sidebar: renderChannelSidebar(props), __self: this, __source: {fileName: _jsxFileName$i, lineNumber: 77}}
-                            , react.createElement('div', { className: "h-100 w-100 overflow-x-hidden flex flex-column"    , __self: this, __source: {fileName: _jsxFileName$i, lineNumber: 79}}
-                              , react.createElement('div', { className: "pl3 pr3 pt2 pb3"   , __self: this, __source: {fileName: _jsxFileName$i, lineNumber: 80}}
-                                , react.createElement('h2', {__self: this, __source: {fileName: _jsxFileName$i, lineNumber: 81}}, "Home")
-                                , react.createElement('p', { className: "body-regular-400 pt3" , __self: this, __source: {fileName: _jsxFileName$i, lineNumber: 82}}, "Select a chat from the sidebar or "
+                            sidebar: renderChannelSidebar(props), __self: this, __source: {fileName: _jsxFileName$i, lineNumber: 67}}
+                            , react.createElement('div', { className: "h-100 w-100 overflow-x-hidden flex flex-column"    , __self: this, __source: {fileName: _jsxFileName$i, lineNumber: 69}}
+                              , react.createElement('div', { className: "pl3 pr3 pt2 pb3"   , __self: this, __source: {fileName: _jsxFileName$i, lineNumber: 70}}
+                                , react.createElement('h2', {__self: this, __source: {fileName: _jsxFileName$i, lineNumber: 71}}, "Home")
+                                , react.createElement('p', { className: "body-regular-400 pt3" , __self: this, __source: {fileName: _jsxFileName$i, lineNumber: 72}}, "Select a chat from the sidebar or "
 
-                                   , react.createElement(Link, { to: "/~chat/new", __self: this, __source: {fileName: _jsxFileName$i, lineNumber: 84}}, "create a new one"   ), "."
+                                   , react.createElement(Link, { to: "/~chat/new", __self: this, __source: {fileName: _jsxFileName$i, lineNumber: 74}}, "create a new one"   ), "."
                                 )
                               )
                             )
                           )
                         );
-                      }, __self: this, __source: {fileName: _jsxFileName$i, lineNumber: 74}} )
+                      }, __self: this, __source: {fileName: _jsxFileName$i, lineNumber: 64}} )
                     , react.createElement(Route, { exact: true, path: "/~chat/new",
                       render:  (props) => {
                         return (
                           react.createElement(Skeleton, {
                             spinner: this.state.spinner,
-                            sidebar: renderChannelSidebar(props), __self: this, __source: {fileName: _jsxFileName$i, lineNumber: 94}}
+                            sidebar: renderChannelSidebar(props), __self: this, __source: {fileName: _jsxFileName$i, lineNumber: 84}}
                             , react.createElement(NewScreen, {
                               setSpinner: this.setSpinner,
                               api: api,
-                              circles: circles,
-                              ...props, __self: this, __source: {fileName: _jsxFileName$i, lineNumber: 97}}
+                              inbox: state.inbox,
+                              ...props, __self: this, __source: {fileName: _jsxFileName$i, lineNumber: 87}}
                             )
                           )
                         );
-                      }, __self: this, __source: {fileName: _jsxFileName$i, lineNumber: 91}} )
+                      }, __self: this, __source: {fileName: _jsxFileName$i, lineNumber: 81}} )
                     , react.createElement(Route, { exact: true, path: "/~chat/join/:ship/:station",
                       render:  (props) => {
                         return (
                           react.createElement(Skeleton, {
-                            sidebar: renderChannelSidebar(props), __self: this, __source: {fileName: _jsxFileName$i, lineNumber: 109}}
+                            sidebar: renderChannelSidebar(props), __self: this, __source: {fileName: _jsxFileName$i, lineNumber: 99}}
                             , react.createElement(LandingScreen, {
                               api: api,
-                              configs: configs,
-                              ...props, __self: this, __source: {fileName: _jsxFileName$i, lineNumber: 111}}
+                              ...props, __self: this, __source: {fileName: _jsxFileName$i, lineNumber: 101}}
                             )
                           )
                         );
-                       }, __self: this, __source: {fileName: _jsxFileName$i, lineNumber: 106}} )
-                     , react.createElement(Route, { exact: true, path: "/~chat/:ship/:station",
+                       }, __self: this, __source: {fileName: _jsxFileName$i, lineNumber: 96}} )
+                     , react.createElement(Route, { exact: true, path: "/~chat/:station",
                        render:  (props) => {
-                         let station =
-                           props.match.params.ship
-                           + "/" +
-                           props.match.params.station;
-                         let messages = state.messages[station] || [];
+                         let station = '/' + props.match.params.station;
+                         let mailbox = state.inbox[station] || {
+                           owner: '',
+                           read: -1,
+                           envelopes: []
+                         };
                          return (
                            react.createElement(Skeleton, {
-                             sidebar: renderChannelSidebar(props) , __self: this, __source: {fileName: _jsxFileName$i, lineNumber: 127}}
+                             sidebar: renderChannelSidebar(props) , __self: this, __source: {fileName: _jsxFileName$i, lineNumber: 117}}
                              , react.createElement(ChatScreen, {
                                api: api,
-                               configs: configs,
-                               messages: messages,
+                               inbox: state.inbox,
+                               owner: mailbox.owner,
+                               read: mailbox.read,
+                               envelopes: mailbox.envelopes,
                                pendingMessages: state.pendingMessages,
-                               peers: state.peers,
+                               groups: state.groups[station] || new Set([]),
                                subscription: subscription,
-                               ...props, __self: this, __source: {fileName: _jsxFileName$i, lineNumber: 129}}
+                               ...props, __self: this, __source: {fileName: _jsxFileName$i, lineNumber: 119}}
                              )
                            )
                          );
-                       }, __self: this, __source: {fileName: _jsxFileName$i, lineNumber: 119}} )
+                       }, __self: this, __source: {fileName: _jsxFileName$i, lineNumber: 108}} )
                      , react.createElement(Route, { exact: true, path: "/~chat/:ship/:station/members",
                        render:  (props) => {
                          return (
                            react.createElement(Skeleton, {
-                             sidebar: renderChannelSidebar(props) , __self: this, __source: {fileName: _jsxFileName$i, lineNumber: 144}}
+                             sidebar: renderChannelSidebar(props) , __self: this, __source: {fileName: _jsxFileName$i, lineNumber: 136}}
                              , react.createElement(MemberScreen, {
                                ...props,
                                api: api,
-                               peers: state.peers, __self: this, __source: {fileName: _jsxFileName$i, lineNumber: 146}}
+                               peers: state.peers, __self: this, __source: {fileName: _jsxFileName$i, lineNumber: 138}}
                              )
                            )
                          );
-                       }, __self: this, __source: {fileName: _jsxFileName$i, lineNumber: 141}} )
+                       }, __self: this, __source: {fileName: _jsxFileName$i, lineNumber: 133}} )
                      , react.createElement(Route, { exact: true, path: "/~chat/:ship/:station/settings",
                        render:  (props) => {
                          return (
                            react.createElement(Skeleton, {
                              spinner: this.state.spinner,
-                             sidebar: renderChannelSidebar(props) , __self: this, __source: {fileName: _jsxFileName$i, lineNumber: 157}}
+                             sidebar: renderChannelSidebar(props) , __self: this, __source: {fileName: _jsxFileName$i, lineNumber: 149}}
                              , react.createElement(SettingsScreen, {
                                ...props,
                                setSpinner: this.setSpinner,
                                api: api,
-                               peers: state.peers,
-                               circles: state.circles, __self: this, __source: {fileName: _jsxFileName$i, lineNumber: 160}}
+                               groups: state.groups,
+                               inbox: state.inbox, __self: this, __source: {fileName: _jsxFileName$i, lineNumber: 152}}
                              )
                            )
                          );
-                       }, __self: this, __source: {fileName: _jsxFileName$i, lineNumber: 154}} )
+                       }, __self: this, __source: {fileName: _jsxFileName$i, lineNumber: 146}} )
                     )
                   )
                 )
