@@ -84,8 +84,6 @@
   ::
   ?:  ?=($pawn myr)
   :~  [%home %lens]
-      [%base %hall]
-      [%base %talk]
       [%base %dojo]
       [%base %modulo]
       [%home %launch]
@@ -95,18 +93,14 @@
       [%home %weather]
   ==
   :~  [%home %lens]
-      [%home %acme]
-      [%home %dns]
       [%home %dojo]
-      [%home %hall]
-      [%home %talk]
+      [%home %groups]
+      [%home %group-sync]
       [%home %modulo]
       [%home %launch]
       [%home %chat]
-      [%home %publish]
-      [%home %clock]
-      [%home %weather]
-      [%home %azimuth-tracker]
+      [%home %inbox]
+      [%home %inbox-sync]
   ==
 ::
 ++  deft-fish                                           ::  default connects

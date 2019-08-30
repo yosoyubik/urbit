@@ -1,23 +1,19 @@
 import { InitialReducer } from '/reducers/initial';
-import { ConfigReducer } from '/reducers/config';
-import { UpdateReducer } from '/reducers/update';
+import { GroupUpdateReducer } from '/reducers/group-update';
+import { InboxUpdateReducer } from '/reducers/inbox-update';
+
 
 
 class Store {
   constructor() {
     this.state = {
       inbox: {},
-      messages: {},
-      configs: {},
-      circles: [],
-      peers: {},
-      spinner: false,
-      pendingMessages: new Map([])
+      groups: {}
     };
 
     this.initialReducer = new InitialReducer();
-    this.configReducer = new ConfigReducer();
-    this.updateReducer = new UpdateReducer();
+    this.groupUpdateReducer = new GroupUpdateReducer();
+    this.inboxUpdateReducer = new InboxUpdateReducer();
     this.setState = () => {};
   }
 
@@ -30,8 +26,8 @@ class Store {
 
     console.log(json);
     this.initialReducer.reduce(json, this.state);
-    this.configReducer.reduce(json, this.state);
-    this.updateReducer.reduce(json, this.state);
+    this.groupUpdateReducer.reduce(json, this.state);
+    this.inboxUpdateReducer.reduce(json, this.state);
 
     this.setState(this.state);
   }

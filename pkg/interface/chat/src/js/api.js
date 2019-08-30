@@ -9,6 +9,21 @@ class UrbitApi {
   setAuthTokens(authTokens) {
     this.authTokens = authTokens;
     this.bindPaths = [];
+
+    this.groups = {
+      bundle: this.groupBundle.bind(this),
+      unbundle: this.groupBundle.bind(this),
+      add: this.groupAdd.bind(this),
+      remove: this.groupRemove.bind(this)
+    };
+    
+    this.inbox = {
+      create: this.inboxCreate.bind(this),
+      delete: this.inboxDelete.bind(this),
+      message: this.inboxMessage.bind(this),
+      read: this.inboxRead.bind(this)
+    };
+
   }
 
   // keep default bind to hall, since its bind procedure more complex for now AA
@@ -33,30 +48,6 @@ class UrbitApi {
       });
   }
 
-  hall(data) {
-    this.action("hall", "hall-action", data);
-  }
-  
-  addPendingMessage(data) {
-    let pendingMap = store.state.pendingMessages;
-    if (pendingMap.has(data.aud[0])) {
-      pendingMap.get(data.aud[0]).push(data)     
-    } else {
-      pendingMap.set(data.aud[0], [data])
-    }
-    store.setState({
-      pendingMessages: pendingMap
-    });
-  }
-
-  chat(lis) {
-    this.action("chat", "chat-action", {
-      actions: {
-        lis
-      }
-    });
-  }
-
   action(appl, mark, data) {
     return new Promise((resolve, reject) => {
       window.urb.poke(ship, appl, mark, data,
@@ -69,90 +60,81 @@ class UrbitApi {
     });
   }
 
-  notify(aud, bool) {
-    this.hall({
-      notify: {
-        aud,
-        pes: !!bool ? 'hear' : 'gone'
+  groupsAction(data) {
+    this.action("groups", "group-action", data);
+  }
+
+  groupBundle(path) {
+    this.groupsAction({
+      bundle: path
+    });
+  }
+
+  groupUnbundle(path) {
+    this.groupsAction({
+      unbundle: path
+    });
+  }
+
+  groupAdd(members, path) {
+    this.groupsAction({
+      add: {
+        members,
+        path
       }
     });
   }
 
-  permit(cir, aud, message) {
-    this.hall({
-      permit: {
-        nom: cir,
-        sis: aud,
-        inv: true
-      }
-    });
-
-    if (message) {
-      this.invite(cir, aud);
-    }
-  }
-
-  unpermit(cir, ship) {
-    /*
-     * lol, never send an unpermit to yourself.
-     * it puts your ship into an infinite loop.
-     * */
-    if (ship === window.ship) {
-      return;
-    }
-    this.hall({
-      permit: {
-        nom: cir,
-        sis: [ship],
-        inv: false
+  groupRemove(members, path) {
+    this.groupsAction({
+      remove: {
+        members, path
       }
     });
   }
 
-  invite(cir, aud) {
-    let audInboxes = aud.map((aud) => `~${aud}/i`);
-    let inviteMessage = {
-      aud: audInboxes,
-      ses: [{
-        inv: {
-          inv: true,
-          cir: `~${window.ship}/${cir}`
-        }
-      }]
-    };
+  inboxAction(data) {
+    this.action("inbox", "inbox-action", data);
+  }
 
-    this.hall({
-      phrase: inviteMessage
+  inboxCreate(path, owner) {
+    this.inboxAction({
+      create: {
+        path, owner
+      }
     });
   }
 
-  source(nom, sub) {
-    this.hall({
-      source: {
-        nom: "inbox",
-        sub: sub,
-        srs: [nom]
-      }
-    })
-  }
-
-  delete(nom) {
-    this.hall({
+  inboxDelete(path) {
+    this.inboxAction({
       delete: {
-        nom,
-        why: ''
+        path
       }
-    })
+    });
   }
 
-  read(nom, red) {
-    this.hall({
-      read: {
-        nom,
-        red
+  inboxMessage(path, author, when, message) {
+    this.inboxAction({
+      message: {
+        path,
+        envelope: {
+          author,
+          when,
+          message
+        }
       }
-    })
+    });
   }
+
+  inboxRead(path, read) {
+    this.inboxAction({
+      read: {
+        path, read
+      }
+    });
+  }
+
+
 }
 
 export let api = new UrbitApi();
