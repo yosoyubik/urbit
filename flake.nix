@@ -64,6 +64,11 @@
             pier = testPier;
             click = usableTools + "/pkg/click/click";
           };
+          testAqua = import ./nix/test-aqua.nix {
+            inherit pkgs;
+            pier = fakePier;
+            click = usableTools + "/pkg/click/click";
+          };
         };
         packages = {
           inherit fakePier testPier;
