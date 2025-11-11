@@ -57,7 +57,7 @@ in pkgs.stdenvNoCC.mkDerivation {
 
   phases = [ "unpackPhase" "buildPhase" "checkPhase" ];
 
-  nativeBuildInputs = [ pkgs.netcat ];
+  nativeBuildInputs = [ pkgs.netcat-gnu pkgs.gnused pkgs.coreutils ];
 
   unpackPhase = ''
     cp -R $src ./pier
@@ -67,6 +67,9 @@ in pkgs.stdenvNoCC.mkDerivation {
   buildPhase = ''
     set -x
     set -e
+
+    # Use GNU tools (needed for click on macOS)
+    export PATH="${pkgs.netcat-gnu}/bin:${pkgs.gnused}/bin:${pkgs.coreutils}/bin:$PATH"
 
     ${../urbit} -d ./pier 1>&2 2> $out
 
