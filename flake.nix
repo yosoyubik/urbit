@@ -10,12 +10,17 @@
   outputs = { self, nixpkgs, flake-utils, tools }:
     flake-utils.lib.eachDefaultSystem (system:
       let
+        pkgs = import nixpkgs { inherit system; };
         usableTools = pkgs.runCommand "patched-tools" { } ''
           cp -r ${tools} $out
           chmod +w -R $out
           patchShebangs $out
         '';
-        pkgs = import nixpkgs { inherit system; };
+        # Wrap click to use GNU tools (needed for macOS compatibility)
+        wrappedClick = pkgs.writeShellScriptBin "click" ''
+          export PATH="${pkgs.netcat-gnu}/bin:${pkgs.gnused}/bin:${pkgs.coreutils}/bin:$PATH"
+          exec ${usableTools}/pkg/click/click "$@"
+        '';
         bootFakeShip = { pill, arvo }:
           pkgs.runCommand "fake-pier" { } ''
             ${./urbit} --pier $out -F zod -B ${pill} -l -x -t -A ${arvo}
@@ -45,11 +50,11 @@
             '';
           };
         buildPill = pill:
-          pkgs.runCommand ("${pill}.pill") { buildInputs = [ pkgs.netcat ]; } ''
+          pkgs.runCommand ("${pill}.pill") { buildInputs = [ pkgs.netcat-gnu ]; } ''
             cp -r ${fakePier} pier
             chmod +w -R pier
             ${./urbit} -d pier
-            ${usableTools}/pkg/click/click -k -p -i ${buildPillThread pill} pier
+            ${wrappedClick}/bin/click -k -p -i ${buildPillThread pill} pier
 
             # Sleep to let urbit spin down properly
             sleep 5
@@ -62,12 +67,12 @@
           testFakeShip = import ./nix/test-fake-ship.nix {
             inherit pkgs;
             pier = testPier;
-            click = usableTools + "/pkg/click/click";
+            click = "${wrappedClick}/bin/click";
           };
           testAqua = import ./nix/test-aqua.nix {
             inherit pkgs;
             pier = fakePier;
-            click = usableTools + "/pkg/click/click";
+            click = "${wrappedClick}/bin/click";
           };
         };
         packages = {
