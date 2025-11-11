@@ -20,14 +20,14 @@ if [ ! -f urbit ]; then
   # Check if LOCAL_URBIT env var is set
   if [ -n "$LOCAL_URBIT" ] && [ -f "$LOCAL_URBIT" ]; then
     echo "Using local urbit binary: $LOCAL_URBIT"
-    ln -sf "$LOCAL_URBIT" ./urbit
-    echo "✓ Linked local urbit binary"
+    cp "$LOCAL_URBIT" ./urbit
+    echo "✓ Copied local urbit binary"
   # Check default vere build location
   elif [ -f "$HOME/urbit/vere/zig-out/${DARWIN_ARCH}-macos-none/urbit" ]; then
     LOCAL_PATH="$HOME/urbit/vere/zig-out/${DARWIN_ARCH}-macos-none/urbit"
     echo "Found local vere build: $LOCAL_PATH"
-    ln -sf "$LOCAL_PATH" ./urbit
-    echo "✓ Linked local urbit binary"
+    cp "$LOCAL_PATH" ./urbit
+    echo "✓ Copied local urbit binary"
   else
     echo "Downloading urbit binary..."
     base="https://bootstrap.urbit.org/vere/edge"
@@ -36,12 +36,14 @@ if [ ! -f urbit ]; then
 
     echo "Downloading from: $url"
     curl -Lo urbit "$url"
-    chmod +x urbit
     echo "✓ Downloaded urbit v${vere}"
   fi
 else
   echo "✓ urbit binary already exists"
 fi
+
+# Ensure urbit is executable
+chmod +x urbit
 
 echo ""
 
@@ -50,7 +52,7 @@ echo "Verifying urbit binary..."
 ./urbit --version
 echo ""
 
-# Add to git temporarily
+# Add to git temporarily (git preserves execute permissions)
 echo "Adding urbit to git (temporarily for Nix)..."
 git add -f urbit
 echo "✓ urbit added to git staging"
