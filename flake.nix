@@ -16,9 +16,10 @@
           chmod +w -R $out
           patchShebangs $out
         '';
-        # Wrap click to use GNU tools (needed for macOS compatibility)
+        # Wrap click to use GNU tools (needed for cross-platform compatibility)
+        # Use netcat-openbsd which supports -U flag (Unix sockets) on all platforms
         wrappedClick = pkgs.writeShellScriptBin "click" ''
-          export PATH="${pkgs.netcat-gnu}/bin:${pkgs.gnused}/bin:${pkgs.coreutils}/bin:$PATH"
+          export PATH="${pkgs.netcat-openbsd}/bin:${pkgs.gnused}/bin:${pkgs.coreutils}/bin:$PATH"
           exec ${usableTools}/pkg/click/click "$@"
         '';
         bootFakeShip = { pill, arvo }:
@@ -50,7 +51,7 @@
             '';
           };
         buildPill = pill:
-          pkgs.runCommand ("${pill}.pill") { buildInputs = [ pkgs.netcat-gnu ]; } ''
+          pkgs.runCommand ("${pill}.pill") { buildInputs = [ pkgs.netcat-openbsd ]; } ''
             cp -r ${fakePier} pier
             chmod +w -R pier
             ${./urbit} -d pier

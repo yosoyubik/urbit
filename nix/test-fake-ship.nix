@@ -57,7 +57,7 @@ in pkgs.stdenvNoCC.mkDerivation {
 
   phases = [ "unpackPhase" "buildPhase" "checkPhase" ];
 
-  nativeBuildInputs = [ pkgs.netcat-gnu pkgs.gnused pkgs.coreutils ];
+  nativeBuildInputs = [ pkgs.netcat-openbsd pkgs.gnused pkgs.coreutils ];
 
   unpackPhase = ''
     cp -R $src ./pier
