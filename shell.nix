@@ -32,6 +32,7 @@ in pkgs.mkShell {
   buildInputs = [
     pkgs.cacert
     pkgs.nixpkgs-fmt
+    pkgs.python3
     pkgs.shfmt
     (import pkgs.sources.niv { }).niv
   ] ++ mergeFrom "buildInputs";
