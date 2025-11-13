@@ -127,8 +127,13 @@ in pkgs.stdenvNoCC.mkDerivation {
     echo "Running -ph-all ~ ..."
     ${click} -k -p -i ${runThread "all"} ./pier
 
-    # XX  Wait for tests to complete (ph-all runs multiple tests)
-    sleep 10
+    # Wait for tests to complete (poll for completion message)
+    echo "Waiting for -ph-all to complete..."
+    timeout 120 bash -c 'while ! grep -q "\-ph-all %done ~" '"$out"'; do sleep 1; done' || {
+      echo "Error: Timeout or failure waiting for -ph-all completion"
+      exit 1
+    }
+    echo "Tests completed successfully!"
 
     ${click} -c ./pier "[0 %fyrd [%base %test %noun %noun 0]]"
 
