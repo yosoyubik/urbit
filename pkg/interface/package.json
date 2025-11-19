@@ -5,7 +5,7 @@
   "main": "index.js",
   "private": true,
   "engines": {
-    "node": "14.19.0"
+    "node": "18.20.5"
   },
   "dependencies": {
     "@babel/runtime": "^7.12.5",
